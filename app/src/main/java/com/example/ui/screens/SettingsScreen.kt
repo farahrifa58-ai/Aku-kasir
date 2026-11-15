@@ -12,16 +12,21 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -1280,145 +1285,183 @@ private fun ReceiptCustomizationDialog(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .safeDrawingPadding()
+                .imePadding()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
                 .widthIn(max = 500.dp)
+                .heightIn(max = 680.dp)
                 .testTag("receipt_customization_dialog")
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(18.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Pinned Dialog Header
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 18.dp, end = 10.dp, top = 12.dp, bottom = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(strings.receiptCustomTitle, style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        text = strings.receiptCustomTitle,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Rounded.Close, contentDescription = strings.close)
                     }
                 }
+                HorizontalDivider()
 
-                // 1. Live Receipt Image Preview at the top
-                Text(strings.receiptPreviewLabel, style = MaterialTheme.typography.labelLarge)
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFFFAFAFA),
+                // Scrollable Receipt Preview, Toggles, and Footer Message
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
-                        .testTag("receipt_custom_preview")
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(
+                    // 1. Live Receipt Image Preview at the top
+                    Text(strings.receiptPreviewLabel, style = MaterialTheme.typography.labelLarge)
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFFAFAFA),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                            .testTag("receipt_custom_preview")
                     ) {
-                        if (showLogo) {
-                            val bmp = remember(store.photoData) { ImageUtils.decodeDataUriToBitmap(store.photoData) }
-                            if (bmp != null) {
-                                Image(
-                                    bitmap = bmp.asImageBitmap(),
-                                    contentDescription = previewStore.storeName,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                )
-                            } else {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ada_kasir_logo),
-                                    contentDescription = "ADA KASIR",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(RoundedCornerShape(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                modifier = Modifier.width(IntrinsicSize.Max),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (showLogo) {
+                                    val bmp = remember(store.photoData) { ImageUtils.decodeDataUriToBitmap(store.photoData) }
+                                    if (bmp != null) {
+                                        Image(
+                                            bitmap = bmp.asImageBitmap(),
+                                            contentDescription = previewStore.storeName,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(CircleShape)
+                                        )
+                                    } else {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.ada_kasir_logo),
+                                            contentDescription = "ADA KASIR",
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = previewText,
+                                    fontFamily = JetBrainsMonoFontFamily,
+                                    fontSize = 10.sp,
+                                    lineHeight = 14.sp,
+                                    softWrap = false,
+                                    color = Color(0xFF111827)
                                 )
                             }
                         }
-                        Text(
-                            text = previewText,
-                            fontFamily = JetBrainsMonoFontFamily,
-                            fontSize = 10.sp,
-                            lineHeight = 14.sp,
-                            color = Color(0xFF111827),
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+
+                    // 2-6. Toggle Switches
+                    ReceiptToggleRow(
+                        label = strings.receiptShowLogoLabel,
+                        checked = showLogo,
+                        onCheckedChange = { showLogo = it },
+                        modifier = Modifier.testTag("switch_receipt_logo")
+                    )
+                    ReceiptToggleRow(
+                        label = strings.receiptShowCashierLabel,
+                        checked = showCashierName,
+                        onCheckedChange = { showCashierName = it },
+                        modifier = Modifier.testTag("switch_receipt_cashier")
+                    )
+                    ReceiptToggleRow(
+                        label = strings.receiptShowPhoneLabel,
+                        checked = showStorePhone,
+                        onCheckedChange = { showStorePhone = it },
+                        modifier = Modifier.testTag("switch_receipt_phone")
+                    )
+                    ReceiptToggleRow(
+                        label = strings.receiptShowAddressLabel,
+                        checked = showStoreAddress,
+                        onCheckedChange = { showStoreAddress = it },
+                        modifier = Modifier.testTag("switch_receipt_address")
+                    )
+                    ReceiptToggleRow(
+                        label = strings.receiptShowCustomerLabel,
+                        checked = showCustomerName,
+                        onCheckedChange = { showCustomerName = it },
+                        modifier = Modifier.testTag("switch_receipt_customer")
+                    )
+
+                    // 7. Editable Footer Message
+                    OutlinedTextField(
+                        value = footerMessage,
+                        onValueChange = { footerMessage = it.take(200) },
+                        label = { Text(strings.receiptFooterMessageLabel) },
+                        placeholder = { Text(strings.receiptFooterMessageHint) },
+                        minLines = 2,
+                        maxLines = 3,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("receipt_footer_input")
+                    )
                 }
 
+                // Pinned Bottom Save Bar — always crisp and clear of navigation bars
                 HorizontalDivider()
-
-                // 2-6. Toggle Switches
-                ReceiptToggleRow(
-                    label = strings.receiptShowLogoLabel,
-                    checked = showLogo,
-                    onCheckedChange = { showLogo = it },
-                    modifier = Modifier.testTag("switch_receipt_logo")
-                )
-                ReceiptToggleRow(
-                    label = strings.receiptShowCashierLabel,
-                    checked = showCashierName,
-                    onCheckedChange = { showCashierName = it },
-                    modifier = Modifier.testTag("switch_receipt_cashier")
-                )
-                ReceiptToggleRow(
-                    label = strings.receiptShowPhoneLabel,
-                    checked = showStorePhone,
-                    onCheckedChange = { showStorePhone = it },
-                    modifier = Modifier.testTag("switch_receipt_phone")
-                )
-                ReceiptToggleRow(
-                    label = strings.receiptShowAddressLabel,
-                    checked = showStoreAddress,
-                    onCheckedChange = { showStoreAddress = it },
-                    modifier = Modifier.testTag("switch_receipt_address")
-                )
-                ReceiptToggleRow(
-                    label = strings.receiptShowCustomerLabel,
-                    checked = showCustomerName,
-                    onCheckedChange = { showCustomerName = it },
-                    modifier = Modifier.testTag("switch_receipt_customer")
-                )
-
-                // 7. Editable Footer Message
-                OutlinedTextField(
-                    value = footerMessage,
-                    onValueChange = { footerMessage = it.take(200) },
-                    label = { Text(strings.receiptFooterMessageLabel) },
-                    placeholder = { Text(strings.receiptFooterMessageHint) },
-                    minLines = 2,
-                    maxLines = 3,
-                    shape = RoundedCornerShape(14.dp),
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("receipt_footer_input")
-                )
-
-                Button(
-                    onClick = {
-                        onSave(
-                            showLogo,
-                            showCashierName,
-                            showStorePhone,
-                            showStoreAddress,
-                            showCustomerName,
-                            footerMessage
-                        )
-                    },
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("save_receipt_customization_button")
+                        .padding(horizontal = 18.dp, vertical = 14.dp)
                 ) {
-                    Icon(Icons.Rounded.Save, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(strings.saveChanges)
+                    Button(
+                        onClick = {
+                            onSave(
+                                showLogo,
+                                showCashierName,
+                                showStorePhone,
+                                showStoreAddress,
+                                showCustomerName,
+                                footerMessage
+                            )
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 50.dp)
+                            .testTag("save_receipt_customization_button")
+                    ) {
+                        Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = strings.saveChanges,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }

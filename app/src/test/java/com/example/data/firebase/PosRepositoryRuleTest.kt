@@ -32,6 +32,12 @@ class PosRepositoryRuleTest : FirestoreEmulatorTestBase() {
             repo.ensureInitialUserSetup(uid, "Rafline", defaultDarkTheme = false, defaultLanguage = "id")
         }
 
+        val initialProducts = withTimeout(5000L) {
+            repo.observeProducts(uid).first { it.size >= 2 }
+        }
+        assertTrue(initialProducts.any { it.name == "Kopi Susu Gula Aren" })
+        assertTrue(initialProducts.any { it.name == "Beras Premium 5 Kg" })
+
         val prodId = withTimeout(5000L) {
             repo.saveProduct(
                 uid,

@@ -207,13 +207,18 @@ class PosViewModel(
     init {
         viewModelScope.launch {
             val local = prefsManager.prefsFlow.first()
+            val shouldSeedSamples = !prefsManager.hasSeededSampleProducts(currentUserId)
             repository.ensureInitialUserSetup(
                 userId = currentUserId,
                 ownerDisplayName = userDisplayName,
                 ownerEmail = userEmail,
                 defaultDarkTheme = local.darkTheme,
-                defaultLanguage = local.language
+                defaultLanguage = local.language,
+                seedSampleProducts = shouldSeedSamples
             )
+            if (shouldSeedSamples) {
+                prefsManager.markSampleProductsSeeded(currentUserId)
+            }
         }
         // Sync remote theme & language changes when operating own store
         viewModelScope.launch {

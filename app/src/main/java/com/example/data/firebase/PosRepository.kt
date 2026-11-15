@@ -181,7 +181,8 @@ class PosRepository(private val db: FirebaseFirestore) {
         ownerDisplayName: String,
         ownerEmail: String = "",
         defaultDarkTheme: Boolean,
-        defaultLanguage: String
+        defaultLanguage: String,
+        seedSampleProducts: Boolean = true
     ) {
         val uid = requireActiveUid(userId)
         val settingsRef = settingsDoc(uid)
@@ -261,6 +262,53 @@ class PosRepository(private val db: FirebaseFirestore) {
                     )
                 }
                 batch.commit().await()
+            }
+
+            if (seedSampleProducts) {
+                val sampleDefinitions = listOf(
+                    "prod_sample_kopi_aren" to mapOf(
+                        "userId" to uid,
+                        "name" to "Kopi Susu Gula Aren",
+                        "sku" to "KSA-001",
+                        "category" to "Minuman",
+                        "unit" to "Botol",
+                        "costPrice" to 10000.0,
+                        "sellPrice" to 18000.0,
+                        "stock" to 24.0,
+                        "minStock" to 5.0,
+                        "description" to "Contoh produk minuman kopi susu kemasan 250 ml",
+                        "photoData" to "",
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    ),
+                    "prod_sample_beras_5kg" to mapOf(
+                        "userId" to uid,
+                        "name" to "Beras Premium 5 Kg",
+                        "sku" to "BRP-005",
+                        "category" to "Sembako",
+                        "unit" to "Pcs",
+                        "costPrice" to 62000.0,
+                        "sellPrice" to 75000.0,
+                        "stock" to 15.0,
+                        "minStock" to 3.0,
+                        "description" to "Contoh produk sembako beras pulen kemasan 5 kg",
+                        "photoData" to "",
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                )
+                val prodBatch = db.batch()
+                var hasWrites = false
+                sampleDefinitions.forEach { (docId, payload) ->
+                    val docRef = productsCol(uid).document(docId)
+                    if (!docRef.get().await().exists()) {
+                        prodBatch.set(docRef, payload)
+                        hasWrites = true
+                    }
+                }
+                if (hasWrites) {
+                    prodBatch.commit().await()
+                }
             }
         } catch (e: CancellationException) {
             throw e

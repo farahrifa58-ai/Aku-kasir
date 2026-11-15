@@ -178,87 +178,77 @@ fun DashboardScreen(
     val displayUser = store.ownerName.ifBlank { userDisplayName.ifBlank { "Kasir" } }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Blue Top Header Banner across full width
-        Surface(
-            color = Color.Transparent,
-            shadowElevation = 4.dp,
+        // Pure seamless blue top area (no elevated header card/box seam)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(BrandBlueDark, BrandBlue)
-                    )
-                )
+                .background(BrandBlue)
                 .statusBarsPadding()
-                .testTag("blue_dashboard_header")
+                .testTag("blue_dashboard_header"),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier
+                    .widthIn(max = 1040.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .widthIn(max = 1040.dp)
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = "$greeting,",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(
-                            text = "$greeting,",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.85f),
+                            text = displayUser,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color.White.copy(alpha = 0.18f)
                         ) {
                             Text(
-                                text = displayUser,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
+                                text = if (isMonitorMode) strings.userModeMonitorLabel else strings.userModeCashierLabel,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
-                            Surface(
-                                shape = RoundedCornerShape(50),
-                                color = Color.White.copy(alpha = 0.18f)
-                            ) {
-                                Text(
-                                    text = if (isMonitorMode) strings.userModeMonitorLabel else strings.userModeCashierLabel,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
-                            }
                         }
                     }
+                }
 
-                    IconButton(
-                        onClick = { showAlertsDialog = true },
-                        modifier = Modifier.testTag("dashboard_notifications_button")
-                    ) {
-                        BadgedBox(
-                            badge = {
-                                if (lowOrEmptyProducts.isNotEmpty()) {
-                                    Badge(containerColor = StatusError) {
-                                        Text("${lowOrEmptyProducts.size}", color = Color.White)
-                                    }
+                IconButton(
+                    onClick = { showAlertsDialog = true },
+                    modifier = Modifier.testTag("dashboard_notifications_button")
+                ) {
+                    BadgedBox(
+                        badge = {
+                            if (lowOrEmptyProducts.isNotEmpty()) {
+                                Badge(containerColor = StatusError) {
+                                    Text("${lowOrEmptyProducts.size}", color = Color.White)
                                 }
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Notifications,
-                                contentDescription = strings.stockAlertsTitle,
-                                tint = Color.White
-                            )
                         }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Notifications,
+                            contentDescription = strings.stockAlertsTitle,
+                            tint = Color.White
+                        )
                     }
                 }
             }

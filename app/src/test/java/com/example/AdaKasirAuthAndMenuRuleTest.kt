@@ -310,8 +310,9 @@ class AdaKasirAuthAndMenuRuleTest : FirestoreEmulatorTestBase() {
         composeRule.onNodeWithTag("receipt_customization_dialog").assertIsDisplayed()
         composeRule.onNodeWithTag("receipt_custom_preview").assertIsDisplayed()
         composeRule.onNodeWithTag("switch_receipt_logo").assertIsDisplayed()
+        composeRule.onNodeWithTag("save_receipt_customization_button").assertIsDisplayed()
         composeRule.onNodeWithTag("receipt_footer_input").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Tutup").performScrollTo().performClick()
+        composeRule.onNodeWithContentDescription("Tutup").performClick()
         composeRule.waitForIdle()
 
         // Open Printer Kasir dialog

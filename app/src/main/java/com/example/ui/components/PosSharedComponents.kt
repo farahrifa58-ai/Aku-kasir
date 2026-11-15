@@ -19,10 +19,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -213,16 +215,10 @@ fun SubScreenTopBar(
     trailingContent: (@Composable () -> Unit)? = null
 ) {
     val strings = LocalAppStrings.current
-    Surface(
-        color = Color.Transparent,
-        shadowElevation = 4.dp,
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(BrandBlueDark, BrandBlue)
-                )
-            )
+            .background(BrandBlue)
             .statusBarsPadding()
             .testTag("blue_subscreen_header")
     ) {
@@ -769,7 +765,7 @@ fun ReceiptDialog(
                     )
                 }
 
-                // Thermal paper preview
+                // Thermal paper preview (logo & monospace text aligned to exact same center axis)
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = Color(0xFFFAFAFA),
@@ -777,45 +773,51 @@ fun ReceiptDialog(
                         .fillMaxWidth()
                         .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
                 ) {
-                    Column(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 14.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        if (store.showReceiptLogo) {
-                            val storeLogoBitmap = remember(store.photoData) {
-                                ImageUtils.decodeDataUriToBitmap(store.photoData)
+                        Column(
+                            modifier = Modifier.width(IntrinsicSize.Max),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (store.showReceiptLogo) {
+                                val storeLogoBitmap = remember(store.photoData) {
+                                    ImageUtils.decodeDataUriToBitmap(store.photoData)
+                                }
+                                if (storeLogoBitmap != null) {
+                                    Image(
+                                        bitmap = storeLogoBitmap.asImageBitmap(),
+                                        contentDescription = store.storeName,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                    )
+                                } else {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.ada_kasir_logo),
+                                        contentDescription = "ADA KASIR",
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                    )
+                                }
                             }
-                            if (storeLogoBitmap != null) {
-                                Image(
-                                    bitmap = storeLogoBitmap.asImageBitmap(),
-                                    contentDescription = store.storeName,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(CircleShape)
-                                )
-                            } else {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ada_kasir_logo),
-                                    contentDescription = "ADA KASIR",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                )
-                            }
+                            Text(
+                                text = receiptText,
+                                fontFamily = JetBrainsMonoFontFamily,
+                                fontSize = if (paperWidth == PaperWidth.MM_58) 10.sp else 9.sp,
+                                lineHeight = 14.sp,
+                                softWrap = false,
+                                color = Color(0xFF111827)
+                            )
                         }
-                        Text(
-                            text = receiptText,
-                            fontFamily = JetBrainsMonoFontFamily,
-                            fontSize = if (paperWidth == PaperWidth.MM_58) 11.sp else 10.sp,
-                            lineHeight = 15.sp,
-                            color = Color(0xFF111827),
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
                 }
 

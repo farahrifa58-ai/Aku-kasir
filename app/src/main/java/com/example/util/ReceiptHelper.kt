@@ -162,25 +162,30 @@ object ReceiptHelper {
         val canvas: Canvas = page.canvas
         canvas.drawColor(Color.WHITE)
 
-        var y = 20f
-        if (logoBitmap != null) {
-            val logoSize = 36f
-            val left = (pageWidth - logoSize) / 2f
-            canvas.drawBitmap(logoBitmap, null, RectF(left, y, left + logoSize, y + logoSize), null)
-            y += logoHeight
-        } else {
-            y = 26f
-        }
-
         val paint = Paint().apply {
             color = Color.BLACK
             textSize = if (paperWidth == PaperWidth.MM_58) 9.5f else 9.0f
             typeface = Typeface.MONOSPACE
             isAntiAlias = true
         }
+        val measuredLineWidth = paint.measureText("=".repeat(paperWidth.charsPerLine))
+        val textStartX = ((pageWidth - measuredLineWidth) / 2f).coerceAtLeast(8f)
+
+        var y = 20f
+        if (logoBitmap != null) {
+            val logoSize = 38f
+            val aspect = if (logoBitmap.height > 0) logoBitmap.width.toFloat() / logoBitmap.height.toFloat() else 1f
+            val drawW = if (aspect >= 1f) logoSize else logoSize * aspect
+            val drawH = if (aspect >= 1f) logoSize / aspect else logoSize
+            val left = (pageWidth - drawW) / 2f
+            canvas.drawBitmap(logoBitmap, null, RectF(left, y, left + drawW, y + drawH), null)
+            y += drawH + 14f
+        } else {
+            y = 26f
+        }
 
         lines.forEach { textLine ->
-            canvas.drawText(textLine, 12f, y, paint)
+            canvas.drawText(textLine, textStartX, y, paint)
             y += lineHeight
         }
 

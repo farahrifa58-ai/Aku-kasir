@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.adaKasirDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -106,6 +107,18 @@ class LocalPreferencesManager(private val context: Context) {
             prefs.remove(Keys.MONITOR_TARGET_UID)
             prefs.remove(Keys.MONITOR_TARGET_EMAIL)
             prefs.remove(Keys.MONITOR_TARGET_STORE)
+        }
+    }
+
+    suspend fun hasSeededSampleProducts(userId: String): Boolean {
+        val key = booleanPreferencesKey("sample_products_seeded_v1_$userId")
+        return context.adaKasirDataStore.data.first()[key] ?: false
+    }
+
+    suspend fun markSampleProductsSeeded(userId: String) {
+        val key = booleanPreferencesKey("sample_products_seeded_v1_$userId")
+        context.adaKasirDataStore.edit { prefs ->
+            prefs[key] = true
         }
     }
 }
