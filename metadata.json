@@ -1,6 +1,6 @@
 {
   "name": "ADA KASIR",
-  "description": "Aplikasi Point of Sale (POS) modern oleh Rafline Dev untuk mengelola transaksi penjualan, stok produk, riwayat, dan sinkronisasi cloud.",
+  "description": "Aplikasi Point of Sale (POS) offline-first oleh Rafline Dev dengan aktivasi kode lisensi 1 perangkat, penyimpanan 100% lokal di memori HP, serta Backup & Restore JSON.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -37,29 +40,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.ManageAccounts
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Storefront
-import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.Tag
+import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -106,15 +108,15 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.example.R
-import com.example.data.firebase.BackupSummary
-import com.example.data.model.AppAccessMode
+import com.example.data.local.BackupSummary
 import com.example.data.model.PaymentMethod
 import com.example.data.model.PosTransaction
-import com.example.data.model.StoreDirectoryEntry
 import com.example.data.model.StoreSettings
 import com.example.data.model.TransactionItem
 import com.example.data.prefs.LocalAppPrefs
+import com.example.ui.activation.openAdminPurchaseEmail
 import com.example.ui.components.PhotoPickerSheetDialog
+import com.example.ui.components.StoreBrandingPresets
 import com.example.ui.components.StoreProfileAvatar
 import com.example.ui.components.SubScreenTopBar
 import com.example.ui.theme.BrandBlue
@@ -124,6 +126,7 @@ import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusError
 import com.example.ui.theme.StatusSuccess
 import com.example.ui.theme.StatusWarning
+import com.example.util.BackupStatusHelper
 import com.example.util.ImageUtils
 import com.example.util.PairedPrinter
 import com.example.util.PaperWidth
@@ -135,18 +138,10 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     store: StoreSettings,
     localPrefs: LocalAppPrefs,
-    userEmail: String,
     isBackupBusy: Boolean,
-    authorizedMonitorStores: List<StoreDirectoryEntry> = emptyList(),
-    isMonitorMode: Boolean = false,
     onBackToDashboard: () -> Unit,
-    onSaveProfile: (String, String, String, String, String, Double) -> Unit,
+    onSaveProfile: (String, String, String, String, String, String, String, String, Double) -> Unit,
     onSaveReceiptCustomization: (Boolean, Boolean, Boolean, Boolean, Boolean, String) -> Unit = { _, _, _, _, _, _ -> },
-    onSetAccessMode: (AppAccessMode) -> Unit = {},
-    onAddMonitorEmail: (String) -> Unit = {},
-    onRemoveMonitorEmail: (String) -> Unit = {},
-    onConnectMonitorStore: (StoreDirectoryEntry) -> Unit = {},
-    onDisconnectMonitorStore: () -> Unit = {},
     onSetDarkTheme: (Boolean) -> Unit,
     onSetLanguage: (String) -> Unit,
     onSelectPrinter: (String, String) -> Unit,
@@ -155,7 +150,9 @@ fun SettingsScreen(
     onGenerateBackupJson: suspend () -> Result<String>,
     onValidateBackupJson: (String) -> Result<BackupSummary>,
     onRestoreBackupJson: (String) -> Unit,
-    onSignOut: () -> Unit,
+    openBackupDialogInitially: Boolean = false,
+    onConsumeOpenBackupDialog: () -> Unit = {},
+    onBackupExportSucceeded: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -166,24 +163,31 @@ fun SettingsScreen(
     var showAppearanceDialog by remember { mutableStateOf(false) }
     var showPrinterDialog by remember { mutableStateOf(false) }
     var showReceiptCustomDialog by remember { mutableStateOf(false) }
-    var showUserManageDialog by remember { mutableStateOf(false) }
-    var showUserModeInfoDialog by remember { mutableStateOf(false) }
     var showBackupDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showPhotoPicker by remember { mutableStateOf(false) }
+
+    LaunchedEffect(openBackupDialogInitially) {
+        if (openBackupDialogInitially) {
+            showBackupDialog = true
+            onConsumeOpenBackupDialog()
+        }
+    }
 
     var storeName by remember(store.storeName) { mutableStateOf(store.storeName) }
     var ownerName by remember(store.ownerName) { mutableStateOf(store.ownerName) }
     var phone by remember(store.phone) { mutableStateOf(store.phone) }
     var address by remember(store.address) { mutableStateOf(store.address) }
     var photoData by remember(store.photoData) { mutableStateOf(store.photoData) }
+    var storeIcon by remember(store.storeIcon) { mutableStateOf(store.storeIcon) }
+    var storeIconBgColor by remember(store.storeIconBgColor) { mutableStateOf(store.storeIconBgColor) }
+    var receiptPrefix by remember(store.receiptPrefix) { mutableStateOf(store.receiptPrefix) }
     var taxPercentInput by remember(store.defaultTaxPercent) {
         mutableStateOf(PosFormatters.formatQuantity(store.defaultTaxPercent))
     }
 
     var pendingRestoreJson by remember { mutableStateOf<String?>(null) }
     var pendingRestoreSummary by remember { mutableStateOf<BackupSummary?>(null) }
-    var isSigningOut by remember { mutableStateOf(false) }
 
     val backupExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -196,6 +200,7 @@ fun SettingsScreen(
                         context.contentResolver.openOutputStream(uri)?.use { out ->
                             out.write(json.toByteArray(Charsets.UTF_8))
                         }
+                        onBackupExportSucceeded()
                         Toast.makeText(context, strings.backupSuccessMsg, Toast.LENGTH_SHORT).show()
                     } catch (e: Exception) {
                         Toast.makeText(context, e.localizedMessage ?: "Export error", Toast.LENGTH_SHORT).show()
@@ -226,9 +231,15 @@ fun SettingsScreen(
         }
     }
 
-    val lastBackupStr = store.lastBackupAt?.toDate()?.time?.let {
-        PosFormatters.formatDateTime(it, store.language)
-    } ?: strings.neverBackedUp
+    val effectiveLastBackupAt = BackupStatusHelper.resolveEffectiveLastBackupAt(
+        prefsLastBackupAt = localPrefs.lastBackupAt,
+        storeLastBackupAtMillis = store.lastBackupAt?.toDate()?.time
+    )
+    val lastBackupStr = if (effectiveLastBackupAt > 0L) {
+        PosFormatters.formatDateTime(effectiveLastBackupAt, store.language)
+    } else {
+        strings.neverBackedUp
+    }
 
     val printerSummarySubtitle = if (localPrefs.defaultPrinterName.isNotBlank()) {
         "${localPrefs.defaultPrinterName} • ${localPrefs.printerPaperWidthMm} mm"
@@ -261,11 +272,11 @@ fun SettingsScreen(
                 }
                 item {
                     SettingsMenuCard(
-                        icon = Icons.Rounded.Storefront,
-                        iconTint = Color(0xFF2563EB),
-                        iconBg = Color(0xFFDBEAFE),
+                        icon = StoreBrandingPresets.resolveIcon(store.storeIcon),
+                        iconTint = StoreBrandingPresets.parseHexColor(store.storeIconBgColor, BrandBlue),
+                        iconBg = StoreBrandingPresets.parseHexColor(store.storeIconBgColor, BrandBlue).copy(alpha = 0.14f),
                         title = strings.storeProfileSection,
-                        subtitle = store.storeName.ifBlank { strings.storeProfileSubtitle },
+                        subtitle = "${store.storeName.ifBlank { strings.storeProfileSubtitle }} • Nota: ${PosFormatters.sanitizeReceiptPrefix(store.receiptPrefix)}",
                         onClick = { showProfileDialog = true },
                         modifier = Modifier.testTag("settings_store_profile_item")
                     )
@@ -281,34 +292,6 @@ fun SettingsScreen(
                         subtitle = "$themeLabel • $langLabel",
                         onClick = { showAppearanceDialog = true },
                         modifier = Modifier.testTag("settings_appearance_item")
-                    )
-                }
-                item {
-                    val modeLabel = if (isMonitorMode || localPrefs.accessMode == AppAccessMode.MONITOR.code) {
-                        strings.userModeMonitorLabel
-                    } else {
-                        strings.userModeCashierLabel
-                    }
-                    SettingsMenuCard(
-                        icon = Icons.Rounded.ManageAccounts,
-                        iconTint = Color(0xFF0284C7),
-                        iconBg = Color(0xFFE0F2FE),
-                        title = strings.userManageTitle,
-                        subtitle = "$modeLabel • ${strings.userManageSubtitle}",
-                        onClick = { showUserManageDialog = true },
-                        trailingAccessory = {
-                            IconButton(
-                                onClick = { showUserModeInfoDialog = true },
-                                modifier = Modifier.testTag("user_mode_info_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Info,
-                                    contentDescription = strings.userRoleInfoTitle,
-                                    tint = BrandBlue
-                                )
-                            }
-                        },
-                        modifier = Modifier.testTag("settings_user_management_item")
                     )
                 }
 
@@ -357,10 +340,169 @@ fun SettingsScreen(
                     )
                 }
 
-                // SECTION 4: Akun & Aplikasi
+                // SECTION 4: Lisensi Perangkat & Aplikasi (100% Offline, Tanpa Logout)
                 item {
                     Spacer(Modifier.height(4.dp))
-                    SettingsSectionHeader(strings.settingsAccountSection)
+                    SettingsSectionHeader(strings.licenseStatusSection)
+                }
+                item {
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_license_status_card")
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(BrandGreen.copy(alpha = 0.14f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.VerifiedUser,
+                                        contentDescription = strings.licenseStatusTitle,
+                                        tint = BrandGreen,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = strings.licenseStatusTitle,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = BrandGreen.copy(alpha = 0.14f),
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = strings.licenseActiveBadge,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = BrandGreen,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider()
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = strings.licenseCodeLabel,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = localPrefs.licenseCode.ifBlank { "-" },
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontFamily = JetBrainsMonoFontFamily,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = strings.licenseDeviceIdLabel,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = localPrefs.deviceId.ifBlank { "-" },
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontFamily = JetBrainsMonoFontFamily
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        if (localPrefs.deviceId.isNotBlank()) {
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                            clipboard?.setPrimaryClip(
+                                                ClipData.newPlainText("Device ID", localPrefs.deviceId)
+                                            )
+                                            Toast.makeText(context, strings.licenseCopiedMsg, Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.testTag("settings_copy_device_id_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ContentCopy,
+                                        contentDescription = strings.licenseDeviceIdLabel,
+                                        tint = BrandBlue,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = strings.licenseOfflineNote,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    openAdminPurchaseEmail(
+                                        context = context,
+                                        businessName = store.storeName.ifBlank { localPrefs.businessName },
+                                        deviceId = localPrefs.deviceId,
+                                        fallbackCopiedMsg = strings.activationEmailCopiedMsg
+                                    )
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .testTag("settings_contact_admin_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Email,
+                                    contentDescription = null,
+                                    tint = BrandBlue,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "${strings.contactAdminButton} (${strings.contactAdminSubtitle})",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
                 item {
                     SettingsMenuCard(
@@ -368,176 +510,373 @@ fun SettingsScreen(
                         iconTint = Color(0xFF7C3AED),
                         iconBg = Color(0xFFEDE9FE),
                         title = strings.aboutSection,
-                        subtitle = if (userEmail.isNotBlank()) "$userEmail • v1.0.0" else "${strings.developerBy} • v1.0.0",
+                        subtitle = "${strings.offlineStorageBadge} • v1.0.0",
                         onClick = { showAboutDialog = true },
                         modifier = Modifier.testTag("settings_about_item")
                     )
-                }
-                item {
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = !isSigningOut) {
-                                    if (!isSigningOut) {
-                                        isSigningOut = true
-                                        onSignOut()
-                                    }
-                                }
-                                .padding(horizontal = 16.dp, vertical = 14.dp)
-                                .testTag("settings_sign_out_button"),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(StatusError.copy(alpha = 0.12f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isSigningOut) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        color = StatusError,
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.Logout,
-                                        contentDescription = strings.signOutButton,
-                                        tint = StatusError,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (isSigningOut) strings.loading else strings.signOutButton,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = StatusError
-                                )
-                                Text(
-                                    text = if (userEmail.isNotBlank()) userEmail else strings.syncedWithGoogle,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            Icon(
-                                imageVector = Icons.Rounded.ChevronRight,
-                                contentDescription = null,
-                                tint = StatusError.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
                 }
             }
         }
     }
 
-    // --- Dialog 1: Profil Toko / Bisnis ---
+    // --- Dialog 1: Profil Toko / Bisnis (Icon Usaha, Warna Background, & Prefix Nota) ---
     if (showProfileDialog) {
-        Dialog(onDismissRequest = { showProfileDialog = false }) {
+        val selectedBgColorObj = StoreBrandingPresets.parseHexColor(storeIconBgColor, BrandBlue)
+        val previewTxNumber = remember(receiptPrefix) {
+            PosFormatters.generateTransactionNumber(prefix = receiptPrefix)
+        }
+        Dialog(
+            onDismissRequest = { showProfileDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
             Card(
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(26.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 480.dp)
+                    .safeDrawingPadding()
+                    .imePadding()
+                    .padding(horizontal = 18.dp, vertical = 14.dp)
+                    .widthIn(max = 520.dp)
+                    .heightIn(max = 720.dp)
+                    .testTag("store_profile_dialog")
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(18.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Pinned Header
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 18.dp, end = 10.dp, top = 12.dp, bottom = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(strings.storeProfileSection, style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            text = strings.storeProfileSection,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                         IconButton(onClick = { showProfileDialog = false }) {
                             Icon(Icons.Rounded.Close, contentDescription = strings.close)
                         }
                     }
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+                    HorizontalDivider()
+
+                    // Scrollable Form Content
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        StoreProfileAvatar(
-                            photoData = photoData,
-                            size = 88.dp,
-                            onClick = { showPhotoPicker = true },
-                            modifier = Modifier.testTag("settings_store_avatar")
+                        // Store Avatar / Icon Preview Card
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = selectedBgColorObj.copy(alpha = 0.08f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, selectedBgColorObj.copy(alpha = 0.22f), RoundedCornerShape(20.dp))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                StoreProfileAvatar(
+                                    photoData = photoData,
+                                    storeIcon = storeIcon,
+                                    storeIconBgColor = storeIconBgColor,
+                                    size = 84.dp,
+                                    onClick = { showPhotoPicker = true },
+                                    modifier = Modifier.testTag("settings_store_avatar")
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    FilledTonalButton(
+                                        onClick = { showPhotoPicker = true },
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        modifier = Modifier.heightIn(min = 38.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PhotoCamera,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = strings.useCustomPhotoButton,
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
+                                    }
+                                    if (photoData.isNotBlank()) {
+                                        OutlinedButton(
+                                            onClick = { photoData = "" },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                            modifier = Modifier
+                                                .heightIn(min = 38.dp)
+                                                .testTag("settings_use_icon_badge_button")
+                                        ) {
+                                            Text(
+                                                text = strings.useIconBadgeButton,
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Pilihan Icon Usaha (2 rows x 5 columns)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = strings.storeIconLabel,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            StoreBrandingPresets.iconOptions.chunked(5).forEach { rowIcons ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowIcons.forEach { option ->
+                                        val isSelected = storeIcon == option.key && photoData.isBlank()
+                                        val isSelectedIcon = storeIcon == option.key
+                                        val iconLabel = if (store.language == "en") option.labelEn else option.labelId
+                                        Surface(
+                                            onClick = {
+                                                storeIcon = option.key
+                                                photoData = ""
+                                            },
+                                            shape = RoundedCornerShape(14.dp),
+                                            color = if (isSelectedIcon) {
+                                                selectedBgColorObj.copy(alpha = 0.14f)
+                                            } else {
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                            },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .border(
+                                                    width = if (isSelected) 2.dp else 1.dp,
+                                                    color = if (isSelectedIcon) selectedBgColorObj else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                                                    shape = RoundedCornerShape(14.dp)
+                                                )
+                                                .testTag("store_icon_option_${option.key}")
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = option.icon,
+                                                    contentDescription = iconLabel,
+                                                    tint = if (isSelectedIcon) selectedBgColorObj else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                                Text(
+                                                    text = iconLabel,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = if (isSelectedIcon) FontWeight.Bold else FontWeight.Medium,
+                                                    color = if (isSelectedIcon) selectedBgColorObj else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Pilihan Warna Background Icon (2 rows x 5 circular swatches)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = strings.storeBgColorLabel,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            StoreBrandingPresets.bgColorHexOptions.chunked(5).forEach { rowColors ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    rowColors.forEach { hex ->
+                                        val swatchColor = StoreBrandingPresets.parseHexColor(hex, BrandBlue)
+                                        val isSelected = storeIconBgColor.equals(hex, ignoreCase = true)
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(CircleShape)
+                                                .background(swatchColor)
+                                                .border(
+                                                    width = if (isSelected) 3.dp else 1.dp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.White.copy(alpha = 0.35f),
+                                                    shape = CircleShape
+                                                )
+                                                .clickable {
+                                                    storeIconBgColor = hex
+                                                }
+                                                .testTag("store_color_option_${hex.removePrefix("#")}"),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Check,
+                                                    contentDescription = hex,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider()
+
+                        OutlinedTextField(
+                            value = storeName,
+                            onValueChange = { storeName = it },
+                            label = { Text(strings.storeNameLabel) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = ownerName,
+                            onValueChange = { ownerName = it },
+                            label = { Text(strings.ownerNameLabel) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = phone,
+                            onValueChange = { phone = it },
+                            label = { Text(strings.phoneLabel) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = address,
+                            onValueChange = { address = it },
+                            label = { Text(strings.addressLabel) },
+                            minLines = 2,
+                            maxLines = 3,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Prefix Nomor Nota / Struk + Live Preview
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedTextField(
+                                value = receiptPrefix,
+                                onValueChange = { raw ->
+                                    receiptPrefix = raw.uppercase()
+                                        .filter { it.isLetterOrDigit() }
+                                        .take(10)
+                                },
+                                label = { Text(strings.receiptPrefixLabel) },
+                                placeholder = { Text(strings.receiptPrefixHint) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Tag,
+                                        contentDescription = null,
+                                        tint = BrandBlue
+                                    )
+                                },
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    fontFamily = JetBrainsMonoFontFamily,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("settings_receipt_prefix_input")
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = strings.receiptPrefixPreview,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        text = previewTxNumber,
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontFamily = JetBrainsMonoFontFamily,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.testTag("settings_receipt_prefix_preview")
+                                    )
+                                }
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = taxPercentInput,
+                            onValueChange = { taxPercentInput = it },
+                            label = { Text(strings.defaultTaxPercentLabel) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    OutlinedTextField(
-                        value = storeName,
-                        onValueChange = { storeName = it },
-                        label = { Text(strings.storeNameLabel) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = ownerName,
-                        onValueChange = { ownerName = it },
-                        label = { Text(strings.ownerNameLabel) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = phone,
-                        onValueChange = { phone = it },
-                        label = { Text(strings.phoneLabel) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = address,
-                        onValueChange = { address = it },
-                        label = { Text(strings.addressLabel) },
-                        minLines = 2,
-                        maxLines = 3,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = taxPercentInput,
-                        onValueChange = { taxPercentInput = it },
-                        label = { Text(strings.defaultTaxPercentLabel) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Button(
-                        onClick = {
-                            val taxPct = taxPercentInput.replace(",", ".").toDoubleOrNull()?.coerceIn(0.0, 100.0) ?: 11.0
-                            onSaveProfile(storeName, ownerName, phone, address, photoData, taxPct)
-                            showProfileDialog = false
-                        },
-                        shape = RoundedCornerShape(14.dp),
+
+                    // Pinned Save Button
+                    HorizontalDivider()
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
-                            .testTag("settings_save_profile_button")
+                            .padding(horizontal = 18.dp, vertical = 14.dp)
                     ) {
-                        Icon(Icons.Rounded.Save, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(strings.saveChanges)
+                        Button(
+                            onClick = {
+                                val taxPct = taxPercentInput.replace(",", ".").toDoubleOrNull()?.coerceIn(0.0, 100.0) ?: 11.0
+                                val cleanPrefix = PosFormatters.sanitizeReceiptPrefix(receiptPrefix)
+                                receiptPrefix = cleanPrefix
+                                onSaveProfile(
+                                    storeName,
+                                    ownerName,
+                                    phone,
+                                    address,
+                                    photoData,
+                                    storeIcon,
+                                    storeIconBgColor,
+                                    cleanPrefix,
+                                    taxPct
+                                )
+                                showProfileDialog = false
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("settings_save_profile_button")
+                        ) {
+                            Icon(Icons.Rounded.Save, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(strings.saveChanges, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
@@ -550,7 +889,17 @@ fun SettingsScreen(
             onPhotoCompressed = { newPhoto ->
                 photoData = newPhoto
                 val taxPct = taxPercentInput.replace(",", ".").toDoubleOrNull()?.coerceIn(0.0, 100.0) ?: 11.0
-                onSaveProfile(storeName, ownerName, phone, address, newPhoto, taxPct)
+                onSaveProfile(
+                    storeName,
+                    ownerName,
+                    phone,
+                    address,
+                    newPhoto,
+                    storeIcon,
+                    storeIconBgColor,
+                    PosFormatters.sanitizeReceiptPrefix(receiptPrefix),
+                    taxPct
+                )
             }
         )
     }
@@ -682,7 +1031,7 @@ fun SettingsScreen(
         )
     }
 
-    // --- Dialog 5: Tentang Aplikasi & Akun Google ---
+    // --- Dialog 5: Tentang Aplikasi & Penyimpanan Lokal ---
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
@@ -702,7 +1051,7 @@ fun SettingsScreen(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Text(strings.googleAccountSection, style = MaterialTheme.typography.titleSmall)
                     Text(
-                        text = if (userEmail.isNotBlank()) "$userEmail • ${strings.syncedWithGoogle}" else strings.syncedWithGoogle,
+                        text = strings.syncedWithGoogle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -732,6 +1081,7 @@ fun SettingsScreen(
                     Text("${strings.storeNameLabel}: ${summary.storeName}", style = MaterialTheme.typography.bodySmall)
                     Text("${strings.menuProducts}: ${summary.productCount}", style = MaterialTheme.typography.bodySmall)
                     Text("${strings.menuHistory}: ${summary.transactionCount}", style = MaterialTheme.typography.bodySmall)
+                    Text("${strings.menuExpenses}: ${summary.expenseCount}", style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
@@ -768,48 +1118,6 @@ fun SettingsScreen(
                 onSaveReceiptCustomization(showLogo, showCashier, showPhone, showAddress, showCustomer, footer)
                 showReceiptCustomDialog = false
             }
-        )
-    }
-
-    // --- Dialog 7: Kelola Pengguna (Mode Kasir & Mode Pemantau) ---
-    if (showUserManageDialog) {
-        UserManagementDialog(
-            store = store,
-            localPrefs = localPrefs,
-            userEmail = userEmail,
-            authorizedMonitorStores = authorizedMonitorStores,
-            isMonitorMode = isMonitorMode,
-            onDismiss = { showUserManageDialog = false },
-            onOpenInfo = { showUserModeInfoDialog = true },
-            onSetAccessMode = onSetAccessMode,
-            onAddMonitorEmail = onAddMonitorEmail,
-            onRemoveMonitorEmail = onRemoveMonitorEmail,
-            onConnectMonitorStore = { entry ->
-                onConnectMonitorStore(entry)
-                showUserManageDialog = false
-            },
-            onDisconnectMonitorStore = onDisconnectMonitorStore
-        )
-    }
-
-    // --- Dialog 8: Info (i) Mode Kasir & Pemantau ---
-    if (showUserModeInfoDialog) {
-        AlertDialog(
-            onDismissRequest = { showUserModeInfoDialog = false },
-            title = { Text(strings.userRoleInfoTitle) },
-            text = {
-                Text(
-                    text = strings.userRoleInfoBody,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { showUserModeInfoDialog = false }) {
-                    Text(strings.close)
-                }
-            },
-            modifier = Modifier.testTag("user_mode_info_dialog")
         )
     }
 }
@@ -1233,10 +1541,10 @@ private fun ReceiptCustomizationDialog(
         )
     }
 
-    val sampleTx = remember(previewStore.ownerName) {
+    val sampleTx = remember(previewStore.ownerName, previewStore.receiptPrefix) {
         PosTransaction(
             id = "preview",
-            transactionNumber = "AK-CONTOH-001",
+            transactionNumber = PosFormatters.generateTransactionNumber(prefix = previewStore.receiptPrefix),
             customerName = "Budi Santoso",
             cashierName = previewStore.ownerName.ifBlank { "Admin Kasir" },
             items = listOf(
@@ -1346,26 +1654,12 @@ private fun ReceiptCustomizationDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 if (showLogo) {
-                                    val bmp = remember(store.photoData) { ImageUtils.decodeDataUriToBitmap(store.photoData) }
-                                    if (bmp != null) {
-                                        Image(
-                                            bitmap = bmp.asImageBitmap(),
-                                            contentDescription = previewStore.storeName,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .clip(CircleShape)
-                                        )
-                                    } else {
-                                        Image(
-                                            painter = painterResource(id = R.drawable.ada_kasir_logo),
-                                            contentDescription = "ADA KASIR",
-                                            contentScale = ContentScale.Fit,
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .clip(RoundedCornerShape(12.dp))
-                                        )
-                                    }
+                                    StoreProfileAvatar(
+                                        photoData = store.photoData,
+                                        storeIcon = store.storeIcon,
+                                        storeIconBgColor = store.storeIconBgColor,
+                                        size = 48.dp
+                                    )
                                 }
                                 Text(
                                     text = previewText,
@@ -1497,284 +1791,5 @@ private fun ReceiptToggleRow(
             checked = checked,
             onCheckedChange = onCheckedChange
         )
-    }
-}
-
-@Composable
-private fun UserManagementDialog(
-    store: StoreSettings,
-    localPrefs: LocalAppPrefs,
-    userEmail: String,
-    authorizedMonitorStores: List<StoreDirectoryEntry>,
-    isMonitorMode: Boolean,
-    onDismiss: () -> Unit,
-    onOpenInfo: () -> Unit,
-    onSetAccessMode: (AppAccessMode) -> Unit,
-    onAddMonitorEmail: (String) -> Unit,
-    onRemoveMonitorEmail: (String) -> Unit,
-    onConnectMonitorStore: (StoreDirectoryEntry) -> Unit,
-    onDisconnectMonitorStore: () -> Unit
-) {
-    val strings = LocalAppStrings.current
-    var emailInput by remember { mutableStateOf("") }
-    val selectedMode = if (isMonitorMode || localPrefs.accessMode == AppAccessMode.MONITOR.code) {
-        AppAccessMode.MONITOR
-    } else {
-        AppAccessMode.CASHIER
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .widthIn(max = 500.dp)
-                .testTag("user_management_dialog")
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(18.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = strings.userManageTitle,
-                            style = MaterialTheme.typography.titleLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        IconButton(
-                            onClick = onOpenInfo,
-                            modifier = Modifier.testTag("user_manage_dialog_info_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Info,
-                                contentDescription = strings.userRoleInfoTitle,
-                                tint = BrandBlue
-                            )
-                        }
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Rounded.Close, contentDescription = strings.close)
-                    }
-                }
-
-                // Role Selector: Mode Kasir vs Mode Pemantau
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    FilterChip(
-                        selected = selectedMode == AppAccessMode.CASHIER,
-                        onClick = { onSetAccessMode(AppAccessMode.CASHIER) },
-                        leadingIcon = { Icon(Icons.Rounded.Person, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        label = {
-                            Text(
-                                text = strings.userModeCashierLabel,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("mode_chip_cashier")
-                    )
-                    FilterChip(
-                        selected = selectedMode == AppAccessMode.MONITOR,
-                        onClick = { onSetAccessMode(AppAccessMode.MONITOR) },
-                        leadingIcon = { Icon(Icons.Rounded.Visibility, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        label = {
-                            Text(
-                                text = strings.userModeMonitorLabel,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("mode_chip_monitor")
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = if (selectedMode == AppAccessMode.CASHIER) strings.userModeCashierDesc else strings.userModeMonitorDesc,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
-
-                HorizontalDivider()
-
-                if (selectedMode == AppAccessMode.CASHIER) {
-                    Text(
-                        text = strings.monitorEmailListLabel,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = emailInput,
-                            onValueChange = { emailInput = it },
-                            placeholder = { Text(strings.monitorEmailInputHint) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            singleLine = true,
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("monitor_email_input")
-                        )
-                        Button(
-                            onClick = {
-                                val trimmed = emailInput.trim()
-                                if (trimmed.contains("@")) {
-                                    onAddMonitorEmail(trimmed)
-                                    emailInput = ""
-                                }
-                            },
-                            enabled = emailInput.trim().contains("@"),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier
-                                .height(54.dp)
-                                .testTag("add_monitor_email_button")
-                        ) {
-                            Icon(Icons.Rounded.Add, contentDescription = strings.addMonitorEmailButton)
-                        }
-                    }
-
-                    if (store.monitorEmails.isEmpty()) {
-                        Text(
-                            text = strings.noMonitorEmailsYet,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            store.monitorEmails.forEach { email ->
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = email,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        IconButton(
-                                            onClick = { onRemoveMonitorEmail(email) },
-                                            modifier = Modifier.size(36.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.DeleteOutline,
-                                                contentDescription = strings.delete,
-                                                tint = StatusError,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    Text(
-                        text = strings.monitorStoresAvailableLabel,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    if (authorizedMonitorStores.isEmpty()) {
-                        Text(
-                            text = String.format(strings.monitorNoStoresLinked, userEmail.ifBlank { "-" }),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            authorizedMonitorStores.forEach { entry ->
-                                val isCurrentTarget = localPrefs.monitorTargetUserId == entry.userId && isMonitorMode
-                                Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isCurrentTarget) Icons.Rounded.CheckCircle else Icons.Rounded.Storefront,
-                                            contentDescription = null,
-                                            tint = if (isCurrentTarget) StatusSuccess else BrandBlue
-                                        )
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = entry.storeName.ifBlank { "Toko ADA KASIR" },
-                                                style = MaterialTheme.typography.titleSmall,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Text(
-                                                text = entry.ownerEmail,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                        if (isCurrentTarget) {
-                                            OutlinedButton(onClick = onDisconnectMonitorStore) {
-                                                Text(strings.disconnectPrinterButton)
-                                            }
-                                        } else {
-                                            Button(onClick = { onConnectMonitorStore(entry) }) {
-                                                Text(strings.connectStoreButton)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }

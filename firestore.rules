@@ -6,29 +6,34 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // --- Reusable Hardened Helpers ---
+    // --- Hardened Global Helpers ---
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+             request.auth.token.email != null &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email.lower() == 'farahrifa58@gmail.com';
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isAuthorizedMonitor(userId) {
-      return isSignedIn() &&
-             request.auth.token.email != null &&
-             exists(/databases/$(database)/documents/users/$(userId)/settings/app) &&
-             ('monitorEmails' in get(/databases/$(database)/documents/users/$(userId)/settings/app).data) &&
-             (request.auth.token.email.lower() in get(/databases/$(database)/documents/users/$(userId)/settings/app).data.monitorEmails);
-    }
-
-    function canReadStore(userId) {
-      return isOwner(userId) || isAuthorizedMonitor(userId);
-    }
-
     function isValidId(id) {
-      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string &&
+             id.size() >= 1 &&
+             id.size() <= 128 &&
+             id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function isValidCodeId(code) {
+      return code is string &&
+             code.size() >= 4 &&
+             code.size() <= 64 &&
+             code.matches('^[A-Z0-9_\\-]+$');
     }
 
     function incoming() {
@@ -39,239 +44,134 @@ service cloud.firestore {
       return resource.data;
     }
 
-    function isValidSettings(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.storeName is string && data.storeName.size() >= 1 && data.storeName.size() <= 80 &&
-             data.ownerName is string && data.ownerName.size() <= 80 &&
-             data.phone is string && data.phone.size() <= 30 &&
-             data.address is string && data.address.size() <= 250 &&
-             (!('photoData' in data) || (data.photoData is string && data.photoData.size() <= 250000)) &&
-             data.darkTheme is bool &&
-             data.language is string && data.language in ['id', 'en'] &&
-             data.defaultTaxPercent is number && data.defaultTaxPercent >= 0 && data.defaultTaxPercent <= 100 &&
-             (!('ownerEmail' in data) || (data.ownerEmail is string && data.ownerEmail.size() <= 120)) &&
-             (!('monitorEmails' in data) || (data.monitorEmails is list && data.monitorEmails.size() <= 10)) &&
-             (!('showReceiptLogo' in data) || data.showReceiptLogo is bool) &&
-             (!('showReceiptCashierName' in data) || data.showReceiptCashierName is bool) &&
-             (!('showReceiptStorePhone' in data) || data.showReceiptStorePhone is bool) &&
-             (!('showReceiptStoreAddress' in data) || data.showReceiptStoreAddress is bool) &&
-             (!('showReceiptCustomerName' in data) || data.showReceiptCustomerName is bool) &&
-             (!('receiptFooterMessage' in data) || (data.receiptFooterMessage is string && data.receiptFooterMessage.size() <= 200)) &&
-             (!('lastBackupAt' in data) || (data.lastBackupAt is timestamp && data.lastBackupAt <= request.time)) &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    // --- Validation Blueprints ---
+    function isValidActivationCode(data) {
+      return data.status is string && data.status in ['available', 'used'] &&
+             (!('code' in data) || data.code == null || (data.code is string && data.code.size() <= 64)) &&
+             (!('usedByBusinessName' in data) || data.usedByBusinessName == null || (data.usedByBusinessName is string && data.usedByBusinessName.size() <= 100)) &&
+             (!('registeredDeviceId' in data) || data.registeredDeviceId == null || (data.registeredDeviceId is string && data.registeredDeviceId.size() <= 128)) &&
+             (!('usedAt' in data) || data.usedAt == null || (data.usedAt is timestamp && data.usedAt <= request.time)) &&
+             (!('createdAt' in data) || data.createdAt == null || (data.createdAt is timestamp && data.createdAt <= request.time)) &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             (!('createdBy' in data) || data.createdBy == null || (data.createdBy is string && data.createdBy.size() <= 150)) &&
+             (!('customerName' in data) || data.customerName == null || (data.customerName is string && data.customerName.size() <= 100)) &&
+             (!('customerEmail' in data) || data.customerEmail == null || (data.customerEmail is string && data.customerEmail.size() <= 150)) &&
+             (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 300));
     }
 
-    function isValidCategory(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
-             data.isDefault is bool &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    function isOneTimeActivationTransition() {
+      return existing().status == 'available' &&
+             incoming().status == 'used' &&
+             incoming().usedByBusinessName is string &&
+             incoming().usedByBusinessName.size() >= 1 &&
+             incoming().usedByBusinessName.size() <= 100 &&
+             incoming().registeredDeviceId is string &&
+             incoming().registeredDeviceId.size() >= 4 &&
+             incoming().registeredDeviceId.size() <= 128 &&
+             incoming().usedAt is timestamp &&
+             incoming().usedAt <= request.time &&
+             incoming().diff(existing()).affectedKeys().hasOnly([
+               'status', 'usedByBusinessName', 'registeredDeviceId', 'usedAt'
+             ]);
     }
 
-    function isValidProduct(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
-             data.sku is string && data.sku.size() <= 60 &&
-             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
-             data.unit is string && data.unit in ['Pcs', 'Kg', 'Gram', 'Liter', 'Ml', 'Meter', 'Dus', 'Pack', 'Botol', 'Karung'] &&
-             data.costPrice is number && data.costPrice >= 0 &&
-             data.sellPrice is number && data.sellPrice >= 0 &&
-             data.stock is number && data.stock >= 0 &&
-             data.minStock is number && data.minStock >= 0 &&
-             data.description is string && data.description.size() <= 500 &&
-             (!('photoData' in data) || (data.photoData is string && data.photoData.size() <= 250000)) &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    function isValidUserDoc(data) {
+      return (!('uid' in data) || data.uid == null || (data.uid is string && data.uid.size() <= 128)) &&
+             (!('userId' in data) || data.userId == null || (data.userId is string && data.userId.size() <= 128)) &&
+             (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 150)) &&
+             (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('name' in data) || data.name == null || (data.name is string && data.name.size() <= 100)) &&
+             (!('businessName' in data) || data.businessName == null || (data.businessName is string && data.businessName.size() <= 100)) &&
+             (!('storeName' in data) || data.storeName == null || (data.storeName is string && data.storeName.size() <= 100)) &&
+             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() <= 30)) &&
+             (!('address' in data) || data.address == null || (data.address is string && data.address.size() <= 250)) &&
+             (!('photoUrl' in data) || data.photoUrl == null || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             (!('licenseCode' in data) || data.licenseCode == null || (data.licenseCode is string && data.licenseCode.size() <= 64)) &&
+             (!('deviceId' in data) || data.deviceId == null || (data.deviceId is string && data.deviceId.size() <= 128)) &&
+             (!('role' in data) || data.role == null || (data.role is string && data.role in ['user', 'admin'])) &&
+             (!('status' in data) || data.status == null || (data.status is string && data.status.size() <= 40)) &&
+             (!('isActive' in data) || data.isActive == null || data.isActive is bool) &&
+             (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 300)) &&
+             (!('createdAt' in data) || data.createdAt == null || (data.createdAt is timestamp && data.createdAt <= request.time)) &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             (!('lastLoginAt' in data) || data.lastLoginAt == null || (data.lastLoginAt is timestamp && data.lastLoginAt <= request.time));
     }
 
-    function isValidTransaction(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.transactionNumber is string && data.transactionNumber.size() >= 1 && data.transactionNumber.size() <= 60 &&
-             data.customerName is string && data.customerName.size() <= 100 &&
-             (!('cashierName' in data) || (data.cashierName is string && data.cashierName.size() <= 80)) &&
-             data.items is list && data.items.size() >= 1 && data.items.size() <= 100 &&
-             data.items[0] is map &&
-             data.items[0].productId is string && data.items[0].productId.size() >= 1 &&
-             data.items[0].productName is string && data.items[0].productName.size() >= 1 &&
-             data.items[0].quantity is number && data.items[0].quantity > 0 &&
-             data.subtotal is number && data.subtotal >= 0 &&
-             data.discountType is string && data.discountType in ['NONE', 'PERCENT', 'AMOUNT'] &&
-             data.discountValue is number && data.discountValue >= 0 &&
-             data.discountAmount is number && data.discountAmount >= 0 &&
-             data.taxType is string && data.taxType in ['NONE', 'AUTO', 'MANUAL'] &&
-             data.taxPercent is number && data.taxPercent >= 0 && data.taxPercent <= 100 &&
-             data.taxAmount is number && data.taxAmount >= 0 &&
-             data.totalAmount is number && data.totalAmount >= 0 &&
-             data.paymentMethod is string && data.paymentMethod in ['CASH', 'BANK_TRANSFER', 'QRIS', 'OTHER'] &&
-             data.amountPaid is number && data.amountPaid >= 0 &&
-             data.changeAmount is number && data.changeAmount >= 0 &&
-             data.status is string && data.status in ['COMPLETED', 'CANCELLED', 'REFUNDED'] &&
-             data.statusReason is string && data.statusReason.size() <= 250 &&
-             data.stockDeducted is bool &&
-             data.stockRestored is bool &&
-             data.transactionMillis is int && data.transactionMillis > 0 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidExpense(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
-             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
-             data.amount is number && data.amount >= 0 &&
-             data.notes is string && data.notes.size() <= 400 &&
-             data.expenseMillis is int && data.expenseMillis > 0 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    match /storeDirectory/{userId} {
-      allow get: if isOwner(userId) || (
-        isSignedIn() &&
-        request.auth.token.email != null &&
-        resource != null &&
-        ('monitorEmails' in resource.data) &&
-        (request.auth.token.email.lower() in resource.data.monitorEmails)
+    // --- Collection: activation_codes ---
+    match /activation_codes/{code} {
+      // Verified admin has full get access; regular users/devices can only check a specific
+      // code that does not exist or is still "available" (protects used merchant/device PII)
+      allow get: if isAdmin() || (
+        isValidCodeId(code) &&
+        (resource == null || resource.data.status == 'available')
       );
-      allow list: if isSignedIn() &&
-        request.auth.token.email != null &&
-        (request.auth.token.email.lower() in resource.data.monitorEmails);
-      allow create, update: if isOwner(userId) &&
-                               isValidId(userId) &&
-                               incoming().keys().hasAll(['userId', 'ownerEmail', 'storeName', 'monitorEmails', 'updatedAt']) &&
-                               incoming().keys().hasOnly(['userId', 'ownerEmail', 'storeName', 'monitorEmails', 'updatedAt']) &&
-                               incoming().userId == userId &&
-                               incoming().ownerEmail is string && incoming().ownerEmail.size() <= 120 &&
-                               incoming().storeName is string && incoming().storeName.size() >= 1 && incoming().storeName.size() <= 80 &&
-                               incoming().monitorEmails is list && incoming().monitorEmails.size() <= 10 &&
-                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
-      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // Only verified admin can list activation codes (prevents scraping/enumeration)
+      allow list: if isAdmin();
+
+      // Only verified admin can create new activation codes
+      allow create: if isAdmin() &&
+                       isValidId(code) &&
+                       isValidActivationCode(incoming()) &&
+                       incoming().keys().hasAll(['status']);
+
+      // Verified admin has full update access; regular users/devices can perform a single
+      // atomic one-time activation transition from "available" -> "used"
+      allow update: if isValidActivationCode(incoming()) && (
+        (isAdmin() && isValidId(code)) ||
+        (isValidCodeId(code) && isOneTimeActivationTransition())
+      );
+
+      // Only verified admin can delete activation codes
+      allow delete: if isAdmin() && isValidId(code);
     }
 
+    // --- Collection: users ---
     match /users/{userId} {
-      match /settings/{settingId} {
-        allow get: if canReadStore(userId) && isValidId(settingId);
-        allow list: if canReadStore(userId);
-        allow create: if isOwner(userId) &&
-                         isValidId(settingId) &&
-                         incoming().keys().hasAll(['userId', 'storeName', 'ownerName', 'phone', 'address', 'darkTheme', 'language', 'defaultTaxPercent', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly([
-                           'userId', 'storeName', 'ownerName', 'phone', 'address', 'photoData',
-                           'darkTheme', 'language', 'defaultTaxPercent',
-                           'ownerEmail', 'monitorEmails',
-                           'showReceiptLogo', 'showReceiptCashierName', 'showReceiptStorePhone',
-                           'showReceiptStoreAddress', 'showReceiptCustomerName', 'receiptFooterMessage',
-                           'lastBackupAt', 'createdAt', 'updatedAt'
-                         ]) &&
-                         isValidSettings(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(settingId) &&
-                         isValidSettings(incoming(), userId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         incoming().diff(existing()).affectedKeys().hasOnly([
-                           'storeName', 'ownerName', 'phone', 'address', 'photoData',
-                           'darkTheme', 'language', 'defaultTaxPercent',
-                           'ownerEmail', 'monitorEmails',
-                           'showReceiptLogo', 'showReceiptCashierName', 'showReceiptStorePhone',
-                           'showReceiptStoreAddress', 'showReceiptCustomerName', 'receiptFooterMessage',
-                           'lastBackupAt', 'updatedAt'
-                         ]);
-        allow delete: if isOwner(userId) && isValidId(settingId);
-      }
+      // Verified admin has full read/list access; authenticated users can only read their own profile
+      allow get: if isAdmin() || (isValidId(userId) && isOwner(userId));
+      allow list: if isAdmin();
 
-      match /categories/{categoryId} {
-        allow get: if canReadStore(userId) && isValidId(categoryId);
-        allow list: if canReadStore(userId);
-        allow create: if isOwner(userId) &&
-                         isValidId(categoryId) &&
-                         incoming().keys().hasAll(['userId', 'name', 'isDefault', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'name', 'isDefault', 'createdAt', 'updatedAt']) &&
-                         isValidCategory(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(categoryId) &&
-                         isValidCategory(incoming(), userId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'isDefault', 'updatedAt']);
-        allow delete: if isOwner(userId) && isValidId(categoryId);
-      }
+      // Verified admin can create any valid user record; authenticated users can only create
+      // their own profile without self-assigning admin roles/privileges
+      allow create: if isValidId(userId) &&
+                       isValidUserDoc(incoming()) && (
+                         isAdmin() || (
+                           isOwner(userId) &&
+                           (!('uid' in incoming()) || incoming().uid == request.auth.uid) &&
+                           (!('userId' in incoming()) || incoming().userId == request.auth.uid) &&
+                           incoming().keys().hasOnly([
+                             'uid', 'userId', 'email', 'displayName', 'name',
+                             'businessName', 'storeName', 'phone', 'address',
+                             'photoUrl', 'licenseCode', 'deviceId',
+                             'createdAt', 'updatedAt', 'lastLoginAt'
+                           ])
+                         )
+                       );
 
-      match /products/{productId} {
-        allow get: if canReadStore(userId) && isValidId(productId);
-        allow list: if canReadStore(userId);
-        allow create: if isOwner(userId) &&
-                         isValidId(productId) &&
-                         incoming().keys().hasAll(['userId', 'name', 'sku', 'category', 'unit', 'costPrice', 'sellPrice', 'stock', 'minStock', 'description', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'name', 'sku', 'category', 'unit', 'costPrice', 'sellPrice', 'stock', 'minStock', 'description', 'photoData', 'createdAt', 'updatedAt']) &&
-                         isValidProduct(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(productId) &&
-                         isValidProduct(incoming(), userId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         (
-                           // Action: Stock adjustment during checkout or cancel/refund
-                           incoming().diff(existing()).affectedKeys().hasOnly(['stock', 'updatedAt']) ||
-                           // Action: Full product edit
-                           incoming().diff(existing()).affectedKeys().hasOnly(['name', 'sku', 'category', 'unit', 'costPrice', 'sellPrice', 'stock', 'minStock', 'description', 'photoData', 'updatedAt'])
-                         );
-        allow delete: if isOwner(userId) && isValidId(productId);
-      }
+      // Verified admin has full update access; authenticated users can only update their own
+      // allowed profile fields while keeping immutable/RBAC fields untouched
+      allow update: if isValidId(userId) &&
+                       isValidUserDoc(incoming()) && (
+                         isAdmin() || (
+                           isOwner(userId) &&
+                           (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+                           (!('uid' in existing()) || incoming().uid == existing().uid) &&
+                           (!('userId' in existing()) || incoming().userId == existing().userId) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'displayName', 'name', 'businessName', 'storeName',
+                             'phone', 'address', 'photoUrl', 'licenseCode',
+                             'deviceId', 'updatedAt', 'lastLoginAt'
+                           ])
+                         )
+                       );
 
-      match /transactions/{transactionId} {
-        allow get: if canReadStore(userId) && isValidId(transactionId);
-        allow list: if canReadStore(userId);
-        allow create: if isOwner(userId) &&
-                         isValidId(transactionId) &&
-                         incoming().keys().hasAll([
-                           'userId', 'transactionNumber', 'customerName', 'items', 'subtotal',
-                           'discountType', 'discountValue', 'discountAmount',
-                           'taxType', 'taxPercent', 'taxAmount', 'totalAmount',
-                           'paymentMethod', 'amountPaid', 'changeAmount',
-                           'status', 'statusReason', 'stockDeducted', 'stockRestored',
-                           'transactionMillis', 'createdAt', 'updatedAt'
-                         ]) &&
-                         incoming().keys().hasOnly([
-                           'userId', 'transactionNumber', 'customerName', 'cashierName', 'items', 'subtotal',
-                           'discountType', 'discountValue', 'discountAmount',
-                           'taxType', 'taxPercent', 'taxAmount', 'totalAmount',
-                           'paymentMethod', 'amountPaid', 'changeAmount',
-                           'status', 'statusReason', 'stockDeducted', 'stockRestored',
-                           'transactionMillis', 'createdAt', 'updatedAt'
-                         ]) &&
-                         isValidTransaction(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(transactionId) &&
-                         isValidTransaction(incoming(), userId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         // Terminal State Locking: only COMPLETED with stockRestored == false can transition to CANCELLED/REFUNDED
-                         existing().status == 'COMPLETED' &&
-                         existing().stockRestored == false &&
-                         incoming().status in ['CANCELLED', 'REFUNDED'] &&
-                         incoming().stockRestored == true &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusReason', 'stockRestored', 'updatedAt']);
-        allow delete: if isOwner(userId) && isValidId(transactionId);
-      }
+      // Verified admin or document owner can delete user document
+      allow delete: if isValidId(userId) && (isAdmin() || isOwner(userId));
 
-      match /expenses/{expenseId} {
-        allow get: if canReadStore(userId) && isValidId(expenseId);
-        allow list: if canReadStore(userId);
-        allow create: if isOwner(userId) &&
-                         isValidId(expenseId) &&
-                         incoming().keys().hasAll(['userId', 'title', 'category', 'amount', 'notes', 'expenseMillis', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'title', 'category', 'amount', 'notes', 'expenseMillis', 'createdAt', 'updatedAt']) &&
-                         isValidExpense(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(expenseId) &&
-                         isValidExpense(incoming(), userId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'amount', 'notes', 'expenseMillis', 'updatedAt']);
-        allow delete: if isOwner(userId) && isValidId(expenseId);
+      // Allow verified admin full access to any subcollections under users/{userId}
+      match /{document=**} {
+        allow read, write: if isAdmin();
       }
     }
   }

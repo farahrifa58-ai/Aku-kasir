@@ -250,6 +250,8 @@ fun HomeMenuScreen(
                 ) {
                     StoreProfileAvatar(
                         photoData = store.photoData,
+                        storeIcon = store.storeIcon,
+                        storeIconBgColor = store.storeIconBgColor,
                         size = 48.dp,
                         onClick = { onSelectMenu(AppMenu.SETTINGS) }
                     )

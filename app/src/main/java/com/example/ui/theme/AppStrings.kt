@@ -8,7 +8,30 @@ interface AppStrings {
     val appName: String
     val developerBy: String
 
-    // Auth
+    // License Activation
+    val activationTitle: String
+    val activationSubtitle: String
+    val activationNote: String
+    val activationBusinessNameLabel: String
+    val activationBusinessNameHint: String
+    val activationCodeLabel: String
+    val activationCodeHint: String
+    val activateNowButton: String
+    val activatingProgress: String
+    val contactAdminButton: String
+    val contactAdminSubtitle: String
+    val activationEmptyBusinessError: String
+    val activationEmptyCodeError: String
+    val activationDeviceIdLabel: String
+    val activationEmailCopiedMsg: String
+    val licenseStatusSection: String
+    val licenseStatusTitle: String
+    val licenseActiveBadge: String
+    val licenseCodeLabel: String
+    val licenseDeviceIdLabel: String
+    val licenseOfflineNote: String
+    val licenseCopiedMsg: String
+    val offlineStorageBadge: String
     val loginTitle: String
     val loginSubtitle: String
     val loginButton: String
@@ -167,6 +190,18 @@ interface AppStrings {
     val phoneLabel: String
     val addressLabel: String
     val defaultTaxPercentLabel: String
+    val storeIconLabel: String
+    val storeBgColorLabel: String
+    val useCustomPhotoButton: String
+    val useIconBadgeButton: String
+    val receiptPrefixLabel: String
+    val receiptPrefixHint: String
+    val receiptPrefixPreview: String
+    val clearCartButton: String
+    val paymentSummaryTitle: String
+    val quickCashLabel: String
+    val cashShortfallLabel: String
+    val nonCashAutoExactNote: String
     val saveChanges: String
     val profileSavedMsg: String
     val themeSection: String
@@ -186,6 +221,22 @@ interface AppStrings {
     val restoreConfirmBody: String
     val restoreSuccessMsg: String
     val restoreInvalidMsg: String
+    val backupStatusSafe: String
+    val backupStatusNeedsBackup: String
+    val backupStatusNever: String
+    val backupQuickDialogTitle: String
+    val backupQuickSafeDesc: String
+    val backupQuickNeedsDesc: String
+    val backupQuickDangerDesc: String
+    val backupNowButton: String
+    val openBackupSettingsButton: String
+    val backupModalTitleSafe: String
+    val backupModalTitleNewData: String
+    val backupModalTitleOverdue24h: String
+    val backupModalTitleNeverOrDanger: String
+    val backupModalNeverDetail: String
+    val backupModalLastPrefix: String
+    val backupModalGoToMenuButton: String
     val aboutSection: String
     val versionLabel: String
     val aboutDescription: String
@@ -286,14 +337,37 @@ interface AppStrings {
 object IndonesianStrings : AppStrings {
     override val appName = "ADA KASIR"
     override val developerBy = "Rafline Dev"
+    override val activationTitle = "Aktivasi Aplikasi"
+    override val activationSubtitle = "Masukkan Nama Usaha dan Kode Aktivasi Anda untuk membuka akses penuh 1 perangkat."
+    override val activationNote = "Aktivasi hanya butuh koneksi internet 1 kali di awal. Setelah aktif, seluruh data produk, kasir, dan laporan berjalan 100% offline di memori HP."
+    override val activationBusinessNameLabel = "Nama Usaha / Toko"
+    override val activationBusinessNameHint = "Contoh: Warung Berkah Jaya"
+    override val activationCodeLabel = "Kode Aktivasi"
+    override val activationCodeHint = "CONTOH: ADAKASIR-2026-001"
+    override val activateNowButton = "Aktifkan Sekarang"
+    override val activatingProgress = "Memverifikasi kode aktivasi..."
+    override val contactAdminButton = "Beli Kode / Hubungi Admin"
+    override val contactAdminSubtitle = "rendykurniawan0311@gmail.com"
+    override val activationEmptyBusinessError = "Nama usaha wajib diisi terlebih dahulu."
+    override val activationEmptyCodeError = "Kode aktivasi wajib diisi."
+    override val activationDeviceIdLabel = "ID Perangkat"
+    override val activationEmailCopiedMsg = "Email admin disalin: rendykurniawan0311@gmail.com"
+    override val licenseStatusSection = "Lisensi & Aplikasi"
+    override val licenseStatusTitle = "Status Lisensi Perangkat"
+    override val licenseActiveBadge = "Lisensi Aktif • 100% Offline"
+    override val licenseCodeLabel = "Kode Lisensi"
+    override val licenseDeviceIdLabel = "ID Perangkat Terdaftar"
+    override val licenseOfflineNote = "Aplikasi aktif permanen di perangkat ini dan berjalan 100% offline tanpa perlu login ulang."
+    override val licenseCopiedMsg = "ID Perangkat disalin"
+    override val offlineStorageBadge = "Penyimpanan 100% Lokal di Memori HP"
     override val loginTitle = "ADA KASIR"
-    override val loginSubtitle = "Aplikasi Point of Sale modern dengan sinkronisasi cloud otomatis di seluruh perangkat Anda."
-    override val loginButton = "Masuk dengan Google"
-    override val loginSyncNote = "Cukup login dengan satu akun Google. Semua data toko, produk, stok, dan transaksi tersinkronisasi otomatis."
-    override val loginCancelled = "Login Google dibatalkan. Silakan pilih akun untuk melanjutkan."
-    override val loginSavedSessionNote = "Sesi akun tersimpan (%s). Tekan Masuk dengan Google untuk membuka Dashboard."
-    override val loginErrorFallback = "Gagal masuk dengan Google. Periksa koneksi atau akun Google Anda, lalu coba lagi."
-    override val loginSigningIn = "Memproses masuk..."
+    override val loginSubtitle = "Aplikasi Point of Sale offline-first untuk kasir cepat dan stabil di perangkat Anda."
+    override val loginButton = "Aktifkan Sekarang"
+    override val loginSyncNote = "Seluruh data operasional disimpan lokal di memori HP agar cepat dan bebas kuota server."
+    override val loginCancelled = "Aktivasi dibatalkan."
+    override val loginSavedSessionNote = "Lisensi aktif (%s)."
+    override val loginErrorFallback = "Gagal memverifikasi kode aktivasi. Periksa koneksi internet Anda."
+    override val loginSigningIn = "Memverifikasi..."
     override val menuTitle = "Menu Utama"
     override val menuDashboard = "Dashboard"
     override val menuCashier = "Kasir"
@@ -428,31 +502,59 @@ object IndonesianStrings : AppStrings {
     override val phoneLabel = "Nomor HP"
     override val addressLabel = "Alamat Toko"
     override val defaultTaxPercentLabel = "Tarif PPN Otomatis (%)"
+    override val storeIconLabel = "Pilihan Icon Usaha"
+    override val storeBgColorLabel = "Pilihan Warna Background"
+    override val useCustomPhotoButton = "Upload Foto"
+    override val useIconBadgeButton = "Pakai Icon"
+    override val receiptPrefixLabel = "Prefix Nomor Nota / Struk"
+    override val receiptPrefixHint = "Contoh: AK, WRG, KSR, NOTA"
+    override val receiptPrefixPreview = "Contoh No. Nota: %s"
+    override val clearCartButton = "Kosongkan"
+    override val paymentSummaryTitle = "Ringkasan Pembayaran"
+    override val quickCashLabel = "Nominal Cepat"
+    override val cashShortfallLabel = "Kurang Bayar"
+    override val nonCashAutoExactNote = "Pembayaran non-tunai otomatis menyesuaikan Total Bayar."
     override val saveChanges = "Simpan Perubahan"
-    override val profileSavedMsg = "Profil toko berhasil disimpan dan disinkronkan."
+    override val profileSavedMsg = "Profil toko berhasil disimpan di perangkat."
     override val themeSection = "Tema Aplikasi"
     override val lightTheme = "Tema Terang"
     override val darkTheme = "Tema Gelap"
     override val languageSection = "Bahasa"
     override val languageIndonesian = "Bahasa Indonesia"
     override val languageEnglish = "English"
-    override val backupRestoreSection = "Pencadangan dan Pemulihan Data"
-    override val manualBackupButton = "Backup Manual"
-    override val restoreBackupButton = "Restore Data"
+    override val backupRestoreSection = "Backup & Restore Data"
+    override val manualBackupButton = "Export / Backup File (.json)"
+    override val restoreBackupButton = "Import / Restore File (.json)"
     override val lastBackupLabel = "Backup Terakhir"
     override val neverBackedUp = "Belum pernah dilakukan backup"
-    override val backupInProgress = "Memproses cadangan data..."
-    override val backupSuccessMsg = "Cadangan data berhasil dibuat dan disimpan."
-    override val restoreConfirmTitle = "Konfirmasi Pemulihan Data"
-    override val restoreConfirmBody = "Pemulihan akan memperbarui data produk, kategori, transaksi, dan profil toko Anda. Lanjutkan?"
-    override val restoreSuccessMsg = "Data berhasil dipulihkan dan disinkronkan."
+    override val backupInProgress = "Memproses file cadangan data..."
+    override val backupSuccessMsg = "File backup data berhasil diekspor dan disimpan."
+    override val restoreConfirmTitle = "Konfirmasi Restore Data"
+    override val restoreConfirmBody = "Pemulihan akan memperbarui data produk, kategori, transaksi, pengeluaran, dan profil toko di memori HP. Lanjutkan?"
+    override val restoreSuccessMsg = "Data lokal berhasil dipulihkan dari file backup."
     override val restoreInvalidMsg = "File cadangan tidak valid atau rusak."
+    override val backupStatusSafe = "Backup Aman"
+    override val backupStatusNeedsBackup = "Perlu Backup"
+    override val backupStatusNever = "Belum Backup"
+    override val backupQuickDialogTitle = "Status Backup Data"
+    override val backupQuickSafeDesc = "Data toko Anda sudah di-backup hari ini dan belum ada perubahan data baru."
+    override val backupQuickNeedsDesc = "Ada transaksi/perubahan data baru atau sudah lewat 24 jam sejak backup terakhir."
+    override val backupQuickDangerDesc = "Data belum pernah di-backup atau sudah lebih dari 3 hari tidak di-backup. Segera amankan data Anda."
+    override val backupNowButton = "Backup Sekarang"
+    override val openBackupSettingsButton = "Buka Backup & Restore"
+    override val backupModalTitleSafe = "Data Sudah Aman"
+    override val backupModalTitleNewData = "Ada Data Baru Belum Di-backup"
+    override val backupModalTitleOverdue24h = "Perlu Backup Data"
+    override val backupModalTitleNeverOrDanger = "Data Belum Di-backup"
+    override val backupModalNeverDetail = "Anda belum pernah melakukan backup data sejak aplikasi ini digunakan."
+    override val backupModalLastPrefix = "Terakhir backup:"
+    override val backupModalGoToMenuButton = "Ke Menu Backup Sekarang"
     override val aboutSection = "Tentang Aplikasi"
     override val versionLabel = "Versi Aplikasi"
-    override val aboutDescription = "Aplikasi Point of Sale (POS) modern untuk mengelola transaksi kasir, produk, stok, dan riwayat toko dengan sinkronisasi real-time."
+    override val aboutDescription = "Aplikasi Point of Sale (POS) offline-first untuk mengelola kasir, produk, stok, pengeluaran, dan laporan penjualan langsung di memori perangkat Anda."
     override val copyrightText = "© 2026 Rafline Dev. Hak cipta dilindungi."
-    override val googleAccountSection = "Akun Google & Sinkronisasi"
-    override val syncedWithGoogle = "Tersinkronisasi otomatis dengan akun Google"
+    override val googleAccountSection = "Mode Penyimpanan Data"
+    override val syncedWithGoogle = "100% Lokal (Offline-First di Memori HP)"
     override val signOutButton = "Keluar Akun"
     override val reportFilterDate = "Tanggal"
     override val reportFilterMonth = "Bulan"
@@ -535,14 +637,37 @@ object IndonesianStrings : AppStrings {
 object EnglishStrings : AppStrings {
     override val appName = "ADA KASIR"
     override val developerBy = "Rafline Dev"
+    override val activationTitle = "App Activation"
+    override val activationSubtitle = "Enter your Business Name and License Activation Code to unlock full single-device access."
+    override val activationNote = "Internet is only needed ONCE for initial activation. Afterward, all products, sales, and reports run 100% offline on your device."
+    override val activationBusinessNameLabel = "Business / Store Name"
+    override val activationBusinessNameHint = "e.g. Maju Jaya Store"
+    override val activationCodeLabel = "Activation Code"
+    override val activationCodeHint = "E.G. ADAKASIR-2026-001"
+    override val activateNowButton = "Activate Now"
+    override val activatingProgress = "Verifying activation code..."
+    override val contactAdminButton = "Buy Code / Contact Admin"
+    override val contactAdminSubtitle = "rendykurniawan0311@gmail.com"
+    override val activationEmptyBusinessError = "Please enter your business name."
+    override val activationEmptyCodeError = "Please enter your activation code."
+    override val activationDeviceIdLabel = "Device ID"
+    override val activationEmailCopiedMsg = "Admin email copied: rendykurniawan0311@gmail.com"
+    override val licenseStatusSection = "License & App"
+    override val licenseStatusTitle = "Device License Status"
+    override val licenseActiveBadge = "License Active • 100% Offline"
+    override val licenseCodeLabel = "License Code"
+    override val licenseDeviceIdLabel = "Registered Device ID"
+    override val licenseOfflineNote = "Permanently activated on this device and runs 100% offline without ever logging out."
+    override val licenseCopiedMsg = "Device ID copied"
+    override val offlineStorageBadge = "100% Local On-Device Storage"
     override val loginTitle = "ADA KASIR"
-    override val loginSubtitle = "Modern Point of Sale application with automatic cloud sync across all your devices."
-    override val loginButton = "Sign in with Google"
-    override val loginSyncNote = "Just sign in with one Google account. Your store profile, products, stock, and transactions sync automatically."
-    override val loginCancelled = "Google Sign-In cancelled. Please choose an account to continue."
-    override val loginSavedSessionNote = "Saved session (%s). Tap Sign in with Google to open Dashboard."
-    override val loginErrorFallback = "Google Sign-In failed. Please check your connection or Google account and try again."
-    override val loginSigningIn = "Signing in..."
+    override val loginSubtitle = "Offline-first Point of Sale application for fast and reliable cashier operations on your device."
+    override val loginButton = "Activate Now"
+    override val loginSyncNote = "All operational data is stored locally on device for instant speed and zero server quota."
+    override val loginCancelled = "Activation cancelled."
+    override val loginSavedSessionNote = "Active license (%s)."
+    override val loginErrorFallback = "Failed to verify activation code. Please check your internet connection."
+    override val loginSigningIn = "Verifying..."
     override val menuTitle = "Main Menu"
     override val menuDashboard = "Dashboard"
     override val menuCashier = "Cashier"
@@ -677,31 +802,59 @@ object EnglishStrings : AppStrings {
     override val phoneLabel = "Phone Number"
     override val addressLabel = "Store Address"
     override val defaultTaxPercentLabel = "Auto Tax Rate (%)"
+    override val storeIconLabel = "Business Icon"
+    override val storeBgColorLabel = "Background Color"
+    override val useCustomPhotoButton = "Upload Photo"
+    override val useIconBadgeButton = "Use Icon"
+    override val receiptPrefixLabel = "Receipt Number Prefix"
+    override val receiptPrefixHint = "e.g. AK, POS, INV, STORE"
+    override val receiptPrefixPreview = "Sample Receipt No.: %s"
+    override val clearCartButton = "Clear"
+    override val paymentSummaryTitle = "Payment Summary"
+    override val quickCashLabel = "Quick Cash"
+    override val cashShortfallLabel = "Amount Due"
+    override val nonCashAutoExactNote = "Non-cash payment automatically matches the Grand Total."
     override val saveChanges = "Save Changes"
-    override val profileSavedMsg = "Store profile saved and synced."
+    override val profileSavedMsg = "Store profile saved locally on device."
     override val themeSection = "App Theme"
     override val lightTheme = "Light Theme"
     override val darkTheme = "Dark Theme"
     override val languageSection = "Language"
     override val languageIndonesian = "Bahasa Indonesia"
     override val languageEnglish = "English"
-    override val backupRestoreSection = "Data Backup & Restore"
-    override val manualBackupButton = "Manual Backup"
-    override val restoreBackupButton = "Restore Data"
+    override val backupRestoreSection = "Backup & Restore Data"
+    override val manualBackupButton = "Export / Backup File (.json)"
+    override val restoreBackupButton = "Import / Restore File (.json)"
     override val lastBackupLabel = "Last Backup"
     override val neverBackedUp = "Never backed up yet"
-    override val backupInProgress = "Processing data backup..."
-    override val backupSuccessMsg = "Backup created and saved successfully."
+    override val backupInProgress = "Processing backup file..."
+    override val backupSuccessMsg = "Backup file exported and saved successfully."
     override val restoreConfirmTitle = "Confirm Data Restore"
-    override val restoreConfirmBody = "Restoring will update your products, categories, transactions, and store profile. Continue?"
-    override val restoreSuccessMsg = "Data restored and synced successfully."
+    override val restoreConfirmBody = "Restoring will update your products, categories, transactions, expenses, and store profile on this device. Continue?"
+    override val restoreSuccessMsg = "Local data restored from backup file."
     override val restoreInvalidMsg = "Invalid or corrupted backup file."
+    override val backupStatusSafe = "Backup Safe"
+    override val backupStatusNeedsBackup = "Needs Backup"
+    override val backupStatusNever = "Not Backed Up"
+    override val backupQuickDialogTitle = "Data Backup Status"
+    override val backupQuickSafeDesc = "Your store data was backed up today with no new changes."
+    override val backupQuickNeedsDesc = "There are new transactions/changes or over 24 hours since your last backup."
+    override val backupQuickDangerDesc = "Data has never been backed up or is over 3 days old. Back up your store data now."
+    override val backupNowButton = "Backup Now"
+    override val openBackupSettingsButton = "Open Backup & Restore"
+    override val backupModalTitleSafe = "Data Is Safe"
+    override val backupModalTitleNewData = "New Data Not Yet Backed Up"
+    override val backupModalTitleOverdue24h = "Backup Recommended"
+    override val backupModalTitleNeverOrDanger = "Data Not Backed Up"
+    override val backupModalNeverDetail = "You have never backed up your data since you started using this app."
+    override val backupModalLastPrefix = "Last backup:"
+    override val backupModalGoToMenuButton = "Go to Backup Menu Now"
     override val aboutSection = "About App"
     override val versionLabel = "App Version"
-    override val aboutDescription = "Modern Point of Sale (POS) application to manage cashier transactions, products, stock, and store history with real-time sync."
+    override val aboutDescription = "Offline-first Point of Sale (POS) application to manage cashier transactions, products, stock, expenses, and reports directly on your device."
     override val copyrightText = "© 2026 Rafline Dev. All rights reserved."
-    override val googleAccountSection = "Google Account & Sync"
-    override val syncedWithGoogle = "Automatically synced with Google account"
+    override val googleAccountSection = "Data Storage Mode"
+    override val syncedWithGoogle = "100% Local (Offline-First on Device)"
     override val signOutButton = "Sign Out"
     override val reportFilterDate = "Date"
     override val reportFilterMonth = "Month"

@@ -68,10 +68,21 @@ object PosFormatters {
         return sdf.format(cal.time)
     }
 
-    fun generateTransactionNumber(nowMillis: Long = System.currentTimeMillis()): String {
+    fun sanitizeReceiptPrefix(rawPrefix: String): String {
+        val cleaned = rawPrefix.trim().uppercase().filter { ch ->
+            ch in 'A'..'Z' || ch in '0'..'9'
+        }.take(10)
+        return cleaned.ifBlank { "AK" }
+    }
+
+    fun generateTransactionNumber(
+        nowMillis: Long = System.currentTimeMillis(),
+        prefix: String = "AK"
+    ): String {
         val sdf = SimpleDateFormat("yyMMdd-HHmmss", Locale.US)
         val suffix = (100..999).random()
-        return "AK-${sdf.format(Date(nowMillis))}-$suffix"
+        val cleanPrefix = sanitizeReceiptPrefix(prefix)
+        return "$cleanPrefix-${sdf.format(Date(nowMillis))}-$suffix"
     }
 
     fun paymentMethodLabel(code: String, strings: AppStrings): String =

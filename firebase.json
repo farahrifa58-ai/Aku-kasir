@@ -1,7 +1,7 @@
 {
   "firestore": [
     {
-      "database": "ai-studio-android-adakasir-680cba51-e2a4-48fe-ae73-c64c9d005244",
+      "database": "ai-studio-android-akukasir-54f1caac-277b-441a-9d3b-d05a34f4f8ac",
       "rules": "firestore.rules"
     }
   ],
@@ -9,10 +9,6 @@
     "firestore": {
       "host": "127.0.0.1",
       "port": 8085
-    },
-    "auth": {
-      "host": "127.0.0.1",
-      "port": 9099
     },
     "ui": {
       "enabled": false

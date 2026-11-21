@@ -95,6 +95,7 @@ import com.example.data.model.PosTransaction
 import com.example.data.model.Product
 import com.example.data.model.StoreSettings
 import com.example.data.model.TransactionStatus
+import com.example.ui.components.BackupStatusHeaderPill
 import com.example.ui.components.ProductPhotoBox
 import com.example.ui.components.StoreProfileAvatar
 import com.example.ui.theme.BrandBlue
@@ -107,6 +108,7 @@ import com.example.ui.theme.StatusSuccess
 import com.example.ui.theme.StatusWarning
 import com.example.ui.viewmodel.AppMenu
 import com.example.util.AnalyticsCalculator
+import com.example.util.BackupHealthStatus
 import com.example.util.ChartBucket
 import com.example.util.PosFormatters
 import com.example.util.TopProductRank
@@ -134,6 +136,8 @@ fun DashboardScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToProducts: () -> Unit,
     onSelectTransaction: (PosTransaction) -> Unit,
+    backupStatus: BackupHealthStatus = BackupHealthStatus.NEVER_OR_OVERDUE,
+    onBackupStatusClick: () -> Unit = {},
     isMonitorMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -231,24 +235,33 @@ fun DashboardScreen(
                     }
                 }
 
-                IconButton(
-                    onClick = { showAlertsDialog = true },
-                    modifier = Modifier.testTag("dashboard_notifications_button")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    BadgedBox(
-                        badge = {
-                            if (lowOrEmptyProducts.isNotEmpty()) {
-                                Badge(containerColor = StatusError) {
-                                    Text("${lowOrEmptyProducts.size}", color = Color.White)
+                    BackupStatusHeaderPill(
+                        status = backupStatus,
+                        onClick = onBackupStatusClick
+                    )
+                    IconButton(
+                        onClick = { showAlertsDialog = true },
+                        modifier = Modifier.testTag("dashboard_notifications_button")
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (lowOrEmptyProducts.isNotEmpty()) {
+                                    Badge(containerColor = StatusError) {
+                                        Text("${lowOrEmptyProducts.size}", color = Color.White)
+                                    }
                                 }
                             }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Notifications,
+                                contentDescription = strings.stockAlertsTitle,
+                                tint = Color.White
+                            )
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Notifications,
-                            contentDescription = strings.stockAlertsTitle,
-                            tint = Color.White
-                        )
                     }
                 }
             }
@@ -323,6 +336,8 @@ fun DashboardScreen(
                         ) {
                             StoreProfileAvatar(
                                 photoData = store.photoData,
+                                storeIcon = store.storeIcon,
+                                storeIconBgColor = store.storeIconBgColor,
                                 size = 56.dp,
                                 onClick = { onSelectMenu(AppMenu.SETTINGS) }
                             )

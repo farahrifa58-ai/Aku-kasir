@@ -1,174 +1,157 @@
 {
   "entities": {
-    "StoreSettings": {
-      "title": "StoreSettings",
-      "description": "Store profile, theme, language, default tax configuration, and backup metadata.",
+    "ActivationCode": {
+      "title": "ActivationCode",
+      "description": "One-device license activation code stored in Firestore. Checked once during initial app activation and locked permanently to a single device.",
       "type": "object",
       "properties": {
-        "userId": { "type": "string", "description": "Owner Firebase Auth UID" },
-        "storeName": { "type": "string", "description": "Name of the store" },
-        "ownerName": { "type": "string", "description": "Owner full name" },
-        "phone": { "type": "string", "description": "Store contact phone number" },
-        "address": { "type": "string", "description": "Store street address" },
-        "photoData": { "type": "string", "description": "Compressed base64 JPEG thumbnail of store profile photo" },
-        "darkTheme": { "type": "boolean", "description": "Whether dark mode is enabled" },
-        "language": { "type": "string", "enum": ["id", "en"], "description": "App display language code" },
-        "defaultTaxPercent": { "type": "number", "description": "Configurable default PPN percentage" },
-        "ownerEmail": { "type": "string", "description": "Cashier owner Google email" },
-        "monitorEmails": { "type": "array", "description": "Authorized read-only monitor emails" },
-        "showReceiptLogo": { "type": "boolean", "description": "Show store logo on receipt" },
-        "showReceiptCashierName": { "type": "boolean", "description": "Show cashier name on receipt" },
-        "showReceiptStorePhone": { "type": "boolean", "description": "Show store phone on receipt" },
-        "showReceiptStoreAddress": { "type": "boolean", "description": "Show store address on receipt" },
-        "showReceiptCustomerName": { "type": "boolean", "description": "Show customer name on receipt" },
-        "receiptFooterMessage": { "type": "string", "description": "Custom footer message on receipt" },
-        "lastBackupAt": { "type": "string", "format": "date-time", "description": "Timestamp of last manual backup" },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation" },
-        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on last update" }
+        "code": {
+          "type": "string",
+          "description": "Optional copy of the uppercase activation code."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["available", "used"],
+          "description": "License availability status; transitions once from available to used."
+        },
+        "usedByBusinessName": {
+          "type": "string",
+          "description": "Business name entered by the merchant during activation."
+        },
+        "registeredDeviceId": {
+          "type": "string",
+          "description": "Permanent device identifier bound to this license code."
+        },
+        "usedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp() when activated."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin generated the license code."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin updated the license code."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "Admin identifier or email who generated the code."
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Optional buyer name recorded by admin."
+        },
+        "customerEmail": {
+          "type": "string",
+          "description": "Optional buyer email recorded by admin."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional admin notes for the license code."
+        }
       },
-      "required": ["userId", "storeName", "ownerName", "phone", "address", "darkTheme", "language", "defaultTaxPercent", "createdAt", "updatedAt"]
+      "required": ["status"]
     },
-    "Category": {
-      "title": "Category",
-      "description": "Product category managed by the store owner.",
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered user or merchant account metadata managed by admin and readable/updatable by the owning authenticated user.",
       "type": "object",
       "properties": {
-        "userId": { "type": "string", "description": "Owner Firebase Auth UID" },
-        "name": { "type": "string", "description": "Category display name" },
-        "isDefault": { "type": "boolean", "description": "Whether this is a default starter category" },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation" },
-        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on last update" }
-      },
-      "required": ["userId", "name", "isDefault", "createdAt", "updatedAt"]
-    },
-    "Product": {
-      "title": "Product",
-      "description": "POS product item with pricing, unit, stock level, and optional photo.",
-      "type": "object",
-      "properties": {
-        "userId": { "type": "string", "description": "Owner Firebase Auth UID" },
-        "name": { "type": "string", "description": "Product name" },
-        "sku": { "type": "string", "description": "Product code or SKU" },
-        "category": { "type": "string", "description": "Category name" },
-        "unit": { "type": "string", "enum": ["Pcs", "Kg", "Gram", "Liter", "Ml", "Meter", "Dus", "Pack", "Botol", "Karung"], "description": "Measurement unit" },
-        "costPrice": { "type": "number", "description": "Capital/cost price per unit" },
-        "sellPrice": { "type": "number", "description": "Selling price per unit" },
-        "stock": { "type": "number", "description": "Current available stock" },
-        "minStock": { "type": "number", "description": "Minimum stock warning threshold" },
-        "description": { "type": "string", "description": "Optional product description" },
-        "photoData": { "type": "string", "description": "Compressed base64 JPEG thumbnail of product photo" },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation" },
-        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on last update" }
-      },
-      "required": ["userId", "name", "sku", "category", "unit", "costPrice", "sellPrice", "stock", "minStock", "description", "createdAt", "updatedAt"]
-    },
-    "TransactionItem": {
-      "title": "TransactionItem",
-      "description": "Line item inside a POS sales transaction.",
-      "type": "object",
-      "properties": {
-        "productId": { "type": "string" },
-        "productName": { "type": "string" },
-        "unit": { "type": "string" },
-        "unitPrice": { "type": "number" },
-        "costPrice": { "type": "number" },
-        "quantity": { "type": "number" },
-        "subtotal": { "type": "number" }
-      },
-      "required": ["productId", "productName", "unit", "unitPrice", "costPrice", "quantity", "subtotal"]
-    },
-    "PosTransaction": {
-      "title": "PosTransaction",
-      "description": "Completed, cancelled, or refunded POS sales transaction.",
-      "type": "object",
-      "properties": {
-        "userId": { "type": "string", "description": "Owner Firebase Auth UID" },
-        "transactionNumber": { "type": "string", "description": "Unique human-readable receipt number" },
-        "customerName": { "type": "string", "description": "Optional customer name" },
-        "cashierName": { "type": "string", "description": "Cashier display name at checkout" },
-        "items": { "type": "array", "description": "Purchased items list" },
-        "subtotal": { "type": "number", "description": "Sum of line item subtotals before discount and tax" },
-        "discountType": { "type": "string", "enum": ["NONE", "PERCENT", "AMOUNT"] },
-        "discountValue": { "type": "number" },
-        "discountAmount": { "type": "number" },
-        "taxType": { "type": "string", "enum": ["NONE", "AUTO", "MANUAL"] },
-        "taxPercent": { "type": "number" },
-        "taxAmount": { "type": "number" },
-        "totalAmount": { "type": "number" },
-        "paymentMethod": { "type": "string", "enum": ["CASH", "BANK_TRANSFER", "QRIS", "OTHER"] },
-        "amountPaid": { "type": "number" },
-        "changeAmount": { "type": "number" },
-        "status": { "type": "string", "enum": ["COMPLETED", "CANCELLED", "REFUNDED"] },
-        "statusReason": { "type": "string" },
-        "stockDeducted": { "type": "boolean" },
-        "stockRestored": { "type": "boolean" },
-        "transactionMillis": { "type": "integer", "description": "Transaction epoch milliseconds" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": [
-        "userId", "transactionNumber", "customerName", "items", "subtotal",
-        "discountType", "discountValue", "discountAmount",
-        "taxType", "taxPercent", "taxAmount", "totalAmount",
-        "paymentMethod", "amountPaid", "changeAmount",
-        "status", "statusReason", "stockDeducted", "stockRestored",
-        "transactionMillis", "createdAt", "updatedAt"
-      ]
-    },
-    "Expense": {
-      "title": "Expense",
-      "description": "Store operational or stock expense record.",
-      "type": "object",
-      "properties": {
-        "userId": { "type": "string", "description": "Owner Firebase Auth UID" },
-        "title": { "type": "string", "description": "Expense title" },
-        "category": { "type": "string", "description": "Expense category" },
-        "amount": { "type": "number", "description": "Expense amount in IDR" },
-        "notes": { "type": "string", "description": "Optional expense notes" },
-        "expenseMillis": { "type": "integer", "description": "Expense timestamp in epoch milliseconds" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["userId", "title", "category", "amount", "notes", "expenseMillis", "createdAt", "updatedAt"]
-    },
-    "StoreDirectoryEntry": {
-      "title": "StoreDirectoryEntry",
-      "description": "Authorized read-only store lookup entry linking cashier store to monitor owner emails.",
-      "type": "object",
-      "properties": {
-        "userId": { "type": "string" },
-        "ownerEmail": { "type": "string" },
-        "storeName": { "type": "string" },
-        "monitorEmails": { "type": "array" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["userId", "ownerEmail", "storeName", "monitorEmails", "updatedAt"]
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Alias user ID matching the document ID."
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "Alternative name field."
+        },
+        "businessName": {
+          "type": "string",
+          "description": "Business or store name."
+        },
+        "storeName": {
+          "type": "string",
+          "description": "Alternative store name field."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number."
+        },
+        "address": {
+          "type": "string",
+          "description": "Business address."
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "Profile photo URL."
+        },
+        "licenseCode": {
+          "type": "string",
+          "description": "Associated activation license code."
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Associated device identifier."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "admin"],
+          "description": "Admin-managed account role."
+        },
+        "status": {
+          "type": "string",
+          "description": "Admin-managed account status."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether the user record is active."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional admin notes."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp() on update."
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last sign-in."
+        }
+      }
     }
   },
   "firestore": {
-    "/users/{userId}/settings/{settingId}": {
-      "schema": { "$ref": "#/entities/StoreSettings" },
-      "description": "Per-user store profile, theme, language, receipt config, and backup metadata."
+    "/activation_codes/{code}": {
+      "schema": { "$ref": "#/entities/ActivationCode" },
+      "description": "One-time single-device activation codes verified once online; full CRUD and list access granted to verified admin farahrifa58@gmail.com."
     },
-    "/users/{userId}/categories/{categoryId}": {
-      "schema": { "$ref": "#/entities/Category" },
-      "description": "Per-user product categories synced across devices."
-    },
-    "/users/{userId}/products/{productId}": {
-      "schema": { "$ref": "#/entities/Product" },
-      "description": "Per-user inventory products and stock levels synced across devices."
-    },
-    "/users/{userId}/transactions/{transactionId}": {
-      "schema": { "$ref": "#/entities/PosTransaction" },
-      "description": "Per-user POS transactions and receipts synced across devices."
-    },
-    "/users/{userId}/expenses/{expenseId}": {
-      "schema": { "$ref": "#/entities/Expense" },
-      "description": "Per-user store expense records synced across devices."
-    },
-    "/storeDirectory/{userId}": {
-      "schema": { "$ref": "#/entities/StoreDirectoryEntry" },
-      "description": "Read-only store discovery directory restricted to authorized monitorEmails."
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User records with full CRUD and list access for verified admin farahrifa58@gmail.com and strict owner-only isolation for regular authenticated users."
     }
   }
 }

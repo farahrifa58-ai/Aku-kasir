@@ -9,8 +9,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -32,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -49,18 +56,32 @@ import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material.icons.rounded.Assessment
+import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.BakeryDining
 import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Checkroom
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Devices
+import androidx.compose.material.icons.rounded.GppBad
+import androidx.compose.material.icons.rounded.GppMaybe
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.LocalCafe
+import androidx.compose.material.icons.rounded.LocalPharmacy
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Print
+import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.ShoppingCart
+import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material.icons.rounded.Storefront
+import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -92,6 +113,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -135,24 +157,95 @@ import com.example.ui.theme.MenuSettingsBgLight
 import com.example.ui.theme.MenuSettingsFgDark
 import com.example.ui.theme.MenuSettingsFgLight
 import com.example.ui.viewmodel.AppMenu
+import com.example.util.BackupHealthStatus
 import com.example.util.ImageUtils
 import com.example.util.PairedPrinter
 import com.example.util.PaperWidth
+import com.example.util.PosFormatters
 import com.example.util.ReceiptHelper
 import kotlinx.coroutines.launch
+
+data class StoreIconOption(
+    val key: String,
+    val labelId: String,
+    val labelEn: String,
+    val icon: ImageVector
+)
+
+object StoreBrandingPresets {
+    val iconOptions: List<StoreIconOption> = listOf(
+        StoreIconOption("storefront", "Toko", "Shop", Icons.Rounded.Storefront),
+        StoreIconOption("coffee", "Kafe", "Cafe", Icons.Rounded.LocalCafe),
+        StoreIconOption("restaurant", "Kuliner", "Food", Icons.Rounded.Restaurant),
+        StoreIconOption("shopping_cart", "Mart", "Mart", Icons.Rounded.ShoppingCart),
+        StoreIconOption("bakery", "Roti", "Bakery", Icons.Rounded.BakeryDining),
+        StoreIconOption("pharmacy", "Apotek", "Health", Icons.Rounded.LocalPharmacy),
+        StoreIconOption("checkroom", "Fashion", "Apparel", Icons.Rounded.Checkroom),
+        StoreIconOption("devices", "Gadget", "Tech", Icons.Rounded.Devices),
+        StoreIconOption("spa", "Salon", "Beauty", Icons.Rounded.Spa),
+        StoreIconOption("build", "Servis", "Service", Icons.Rounded.Build)
+    )
+
+    val bgColorHexOptions: List<String> = listOf(
+        "#2563EB", // Royal Blue
+        "#059669", // Emerald
+        "#0D9488", // Teal
+        "#7C3AED", // Violet
+        "#DB2777", // Rose Pink
+        "#EA580C", // Sunset Orange
+        "#D97706", // Amber Gold
+        "#DC2626", // Crimson Red
+        "#4F46E5", // Indigo
+        "#1E293B"  // Slate Navy
+    )
+
+    fun resolveIcon(key: String): ImageVector {
+        return iconOptions.firstOrNull { it.key == key }?.icon ?: Icons.Rounded.Storefront
+    }
+
+    fun parseHexColor(hex: String, fallback: Color = BrandBlue): Color {
+        return runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(fallback)
+    }
+}
+
+fun resolveBundledProductDrawable(photoData: String): Int? {
+    if (!photoData.startsWith("drawable:")) return null
+    return when (photoData.removePrefix("drawable:").trim()) {
+        "img_prod_kopi_aren" -> R.drawable.img_prod_kopi_aren
+        "img_prod_beras_5kg" -> R.drawable.img_prod_beras_5kg
+        "img_prod_gula_kg" -> R.drawable.img_prod_gula_kg
+        "img_prod_mie_pack" -> R.drawable.img_prod_mie_pack
+        else -> null
+    }
+}
 
 @Composable
 fun StoreProfileAvatar(
     photoData: String,
     size: Dp = 48.dp,
     modifier: Modifier = Modifier,
+    storeIcon: String = "storefront",
+    storeIconBgColor: String = "#2563EB",
     onClick: (() -> Unit)? = null
 ) {
     val bitmap = remember(photoData) { ImageUtils.decodeDataUriToBitmap(photoData) }
+    val bgColor = remember(storeIconBgColor) {
+        StoreBrandingPresets.parseHexColor(storeIconBgColor, BrandBlue)
+    }
+    val darkerBgColor = remember(bgColor) {
+        Color(
+            red = (bgColor.red * 0.78f).coerceIn(0f, 1f),
+            green = (bgColor.green * 0.78f).coerceIn(0f, 1f),
+            blue = (bgColor.blue * 0.85f).coerceIn(0f, 1f),
+            alpha = 1f
+        )
+    }
+    val iconVector = remember(storeIcon) { StoreBrandingPresets.resolveIcon(storeIcon) }
+
     val baseModifier = modifier
         .size(size)
         .clip(CircleShape)
-        .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), CircleShape)
+        .border(2.dp, bgColor.copy(alpha = 0.30f), CircleShape)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
 
     if (bitmap != null) {
@@ -163,12 +256,19 @@ fun StoreProfileAvatar(
             modifier = baseModifier
         )
     } else {
-        Image(
-            painter = painterResource(id = R.drawable.img_store_default),
-            contentDescription = "Default store photo",
-            contentScale = ContentScale.Crop,
-            modifier = baseModifier
-        )
+        Box(
+            modifier = baseModifier.background(
+                Brush.linearGradient(listOf(bgColor, darkerBgColor))
+            ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = iconVector,
+                contentDescription = "Store icon",
+                tint = Color.White,
+                modifier = Modifier.size(size * 0.50f)
+            )
+        }
     }
 }
 
@@ -180,7 +280,10 @@ fun ProductPhotoBox(
     cornerRadius: Dp = 12.dp,
     modifier: Modifier = Modifier
 ) {
-    val bitmap = remember(photoData) { ImageUtils.decodeDataUriToBitmap(photoData) }
+    val bundledResId = remember(photoData) { resolveBundledProductDrawable(photoData) }
+    val bitmap = remember(photoData, bundledResId) {
+        if (bundledResId == null) ImageUtils.decodeDataUriToBitmap(photoData) else null
+    }
     Box(
         modifier = modifier
             .size(size)
@@ -188,7 +291,14 @@ fun ProductPhotoBox(
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
-        if (bitmap != null) {
+        if (bundledResId != null) {
+            Image(
+                painter = painterResource(id = bundledResId),
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (bitmap != null) {
             Image(
                 bitmap = bitmap.asImageBitmap(),
                 contentDescription = contentDescription,
@@ -786,28 +896,12 @@ fun ReceiptDialog(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             if (store.showReceiptLogo) {
-                                val storeLogoBitmap = remember(store.photoData) {
-                                    ImageUtils.decodeDataUriToBitmap(store.photoData)
-                                }
-                                if (storeLogoBitmap != null) {
-                                    Image(
-                                        bitmap = storeLogoBitmap.asImageBitmap(),
-                                        contentDescription = store.storeName,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(CircleShape)
-                                    )
-                                } else {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.ada_kasir_logo),
-                                        contentDescription = "ADA KASIR",
-                                        contentScale = ContentScale.Fit,
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                    )
-                                }
+                                StoreProfileAvatar(
+                                    photoData = store.photoData,
+                                    storeIcon = store.storeIcon,
+                                    storeIconBgColor = store.storeIconBgColor,
+                                    size = 48.dp
+                                )
                             }
                             Text(
                                 text = receiptText,
@@ -987,3 +1081,290 @@ fun ReceiptDialog(
         )
     }
 }
+
+/**
+ * Compact icon-only Shield button placed in the app header alongside the notification bell.
+ * - Green (VerifiedUser / ShieldCheck): backed up today & no new data
+ * - Yellow (GppMaybe / ShieldAlert): >24h or new unsaved changes + pulsing amber dot
+ * - Red (GppBad / ShieldX): never backed up or >3 days + pulsing red dot
+ */
+@Composable
+fun BackupStatusHeaderPill(
+    status: BackupHealthStatus,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val strings = LocalAppStrings.current
+    val (accessibilityLabel, icon, bgColor, borderColor, iconTint, dotColor) = when (status) {
+        BackupHealthStatus.SAFE -> Sextuple(
+            strings.backupStatusSafe,
+            Icons.Rounded.VerifiedUser,
+            Color(0xFFECFDF5),
+            Color(0xFF6EE7B7),
+            Color(0xFF15803D),
+            null
+        )
+        BackupHealthStatus.NEEDS_BACKUP -> Sextuple(
+            strings.backupStatusNeedsBackup,
+            Icons.Rounded.GppMaybe,
+            Color(0xFFFFFBEB),
+            Color(0xFFFCD34D),
+            Color(0xFFD97706),
+            Color(0xFFF59E0B)
+        )
+        BackupHealthStatus.NEVER_OR_OVERDUE -> Sextuple(
+            strings.backupStatusNever,
+            Icons.Rounded.GppBad,
+            Color(0xFFFEF2F2),
+            Color(0xFFFCA5A5),
+            Color(0xFFDC2626),
+            Color(0xFFEF4444)
+        )
+    }
+
+    val showAlertDot = dotColor != null
+
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+            .testTag("header_backup_status_badge"),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Surface(
+                shape = RoundedCornerShape(11.dp),
+                color = bgColor,
+                shadowElevation = 2.dp,
+                modifier = Modifier
+                    .size(36.dp)
+                    .border(1.dp, borderColor, RoundedCornerShape(11.dp))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = accessibilityLabel,
+                        tint = iconTint,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+            }
+
+            if (showAlertDot && dotColor != null) {
+                val pulseTransition = rememberInfiniteTransition(label = "backup_shield_dot_pulse")
+                val pulseScale by pulseTransition.animateFloat(
+                    initialValue = 1.0f,
+                    targetValue = 1.9f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 1350, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "pulse_scale"
+                )
+                val pulseAlpha by pulseTransition.animateFloat(
+                    initialValue = 0.65f,
+                    targetValue = 0.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 1350, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "pulse_alpha"
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 3.dp, y = (-3).dp)
+                        .testTag("header_backup_status_alert_dot"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Subtle pulsing halo ring
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .graphicsLayer {
+                                scaleX = pulseScale
+                                scaleY = pulseScale
+                                alpha = pulseAlpha
+                            }
+                            .clip(CircleShape)
+                            .background(dotColor)
+                    )
+                    // Solid notification dot with crisp white outline
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(dotColor)
+                            .border(1.5.dp, Color.White, CircleShape)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class Sextuple<A, B, C, D, E, F>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D,
+    val fifth: E,
+    val sixth: F
+)
+
+/**
+ * Clean centered modal showing detailed backup status when the header Shield icon is tapped.
+ * Never shown automatically — only opens on user tap.
+ */
+@Composable
+fun QuickBackupStatusDialog(
+    status: BackupHealthStatus,
+    lastBackupAtMillis: Long,
+    hasNewDataSinceBackup: Boolean = false,
+    language: String,
+    isBackupBusy: Boolean = false,
+    onOpenBackupSettings: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val strings = LocalAppStrings.current
+    val (statusTitle, statusDesc, icon, accentColor, ctaColor) = when (status) {
+        BackupHealthStatus.SAFE -> Quintuple(
+            strings.backupModalTitleSafe,
+            strings.backupQuickSafeDesc,
+            Icons.Rounded.VerifiedUser,
+            Color(0xFF16A34A),
+            BrandGreen
+        )
+        BackupHealthStatus.NEEDS_BACKUP -> Quintuple(
+            if (hasNewDataSinceBackup) strings.backupModalTitleNewData else strings.backupModalTitleOverdue24h,
+            strings.backupQuickNeedsDesc,
+            Icons.Rounded.GppMaybe,
+            Color(0xFFD97706),
+            BrandBlue
+        )
+        BackupHealthStatus.NEVER_OR_OVERDUE -> Quintuple(
+            strings.backupModalTitleNeverOrDanger,
+            strings.backupQuickDangerDesc,
+            Icons.Rounded.GppBad,
+            Color(0xFFDC2626),
+            BrandBlue
+        )
+    }
+
+    val historyLine = if (lastBackupAtMillis > 0L) {
+        val formattedDate = PosFormatters.formatDateTime(lastBackupAtMillis, language)
+        val relative = com.example.util.BackupStatusHelper.formatRelativeElapsed(
+            lastBackupAtMillis = lastBackupAtMillis,
+            language = language
+        )
+        "${strings.backupModalLastPrefix} $formattedDate ($relative)"
+    } else {
+        strings.backupModalNeverDetail
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isBackupBusy) onDismiss() },
+        modifier = Modifier.testTag("quick_backup_status_dialog"),
+        shape = RoundedCornerShape(24.dp),
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = statusTitle,
+                    tint = accentColor,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = statusTitle,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.testTag("quick_backup_status_title")
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = accentColor.copy(alpha = 0.08f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, accentColor.copy(alpha = 0.22f), RoundedCornerShape(14.dp))
+                ) {
+                    Text(
+                        text = historyLine,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                            .testTag("quick_backup_last_time_text")
+                    )
+                }
+                Text(
+                    text = statusDesc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(2.dp))
+                Button(
+                    onClick = onOpenBackupSettings,
+                    enabled = !isBackupBusy,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ctaColor),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("quick_open_backup_settings_button")
+                ) {
+                    Icon(Icons.Rounded.Backup, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = strings.backupModalGoToMenuButton,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                OutlinedButton(
+                    onClick = onDismiss,
+                    enabled = !isBackupBusy,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .testTag("quick_backup_close_button")
+                ) {
+                    Text(
+                        text = strings.close,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        },
+        confirmButton = {}
+    )
+}
+
+private data class Quintuple<A, B, C, D, E>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D,
+    val fifth: E
+)
